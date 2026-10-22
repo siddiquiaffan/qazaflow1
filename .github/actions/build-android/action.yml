@@ -1,0 +1,89 @@
+name: Build Android APK
+description: Prebuilds the Expo app and assembles a release APK for the given ABIs.
+
+inputs:
+  abis:
+    description: Comma-separated ABIs to compile native code for (e.g. arm64-v8a or arm64-v8a,armeabi-v7a,x86_64,x86)
+    required: true
+  name:
+    description: Label used in the output file name (e.g. arm64-v8a or universal)
+    required: true
+  google-web-client-id:
+    description: Google OAuth web client ID baked into the app for Drive backup
+    required: false
+    default: ''
+  keystore-base64:
+    description: Base64 release keystore (optional)
+    required: false
+    default: ''
+  keystore-password:
+    required: false
+    default: ''
+  key-alias:
+    required: false
+    default: ''
+  key-password:
+    required: false
+    default: ''
+
+outputs:
+  apk:
+    description: Path of the built APK
+    value: ${{ steps.collect.outputs.apk }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v5
+      with:
+        node-version: 22
+        cache: npm
+
+    - uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: 17
+
+    - name: Cache Gradle
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: gradle-${{ runner.os }}-${{ inputs.name }}-${{ hashFiles('package-lock.json') }}
+        restore-keys: |
+          gradle-${{ runner.os }}-${{ inputs.name }}-
+          gradle-${{ runner.os }}-
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Generate native project
+      shell: bash
+      env:
+        EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ inputs.google-web-client-id }}
+      run: npx expo prebuild --platform android --no-install --clean
+
+    - name: Assemble release APK (${{ inputs.abis }})
+      shell: bash
+      working-directory: android
+      env:
+        EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ inputs.google-web-client-id }}
+      run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=${{ inputs.abis }}
+
+    - name: Sign and collect APK
+      id: collect
+      shell: bash
+      env:
+        ANDROID_KEYSTORE_BASE64: ${{ inputs.keystore-base64 }}
+        ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore-password }}
+        ANDROID_KEY_ALIAS: ${{ inputs.key-alias }}
+        ANDROID_KEY_PASSWORD: ${{ inputs.key-password }}
+      run: |
+        version="$(node -p "require('./package.json').version")"
+        built="$(find android/app/build/outputs/apk/release -name '*.apk' | head -n 1)"
+        out="dist/qazaflow-${version}-${{ inputs.name }}.apk"
+        bash scripts/sign-apk.sh "$built" "$out"
+        echo "apk=$out" >> "$GITHUB_OUTPUT"
+        ls -lh dist

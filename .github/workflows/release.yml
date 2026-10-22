@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typecheck and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test -- --ci
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: arm64-v8a
+            abis: arm64-v8a
+          - name: armeabi-v7a
+            abis: armeabi-v7a
+          - name: x86_64
+            abis: x86_64
+          - name: universal
+            abis: arm64-v8a,armeabi-v7a,x86_64,x86
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build APK
+        id: build
+        uses: ./.github/actions/build-android
+        with:
+          abis: ${{ matrix.abis }}
+          name: ${{ matrix.name }}
+          google-web-client-id: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
+          keystore-base64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          keystore-password: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          key-alias: ${{ secrets.ANDROID_KEY_ALIAS }}
+          key-password: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: apk-${{ matrix.name }}
+          path: ${{ steps.build.outputs.apk }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: apk-*
+          path: dist
+          merge-multiple: true
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          ls -lh dist
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/*.apk --clobber
+          else
+            gh release create "$tag" dist/*.apk \
+              --target "${{ github.sha }}" \
+              --title "QazaFlow ${version}" \
+              --generate-notes
+          fi

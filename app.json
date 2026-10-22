@@ -31,16 +31,7 @@
         }
       ],
       "expo-background-task",
-      "@react-native-google-signin/google-signin",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true
-          }
-        }
-      ]
+      "@react-native-google-signin/google-signin"
     ]
   }
 }

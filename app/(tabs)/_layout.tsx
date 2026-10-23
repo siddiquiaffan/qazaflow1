@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { useTheme } from '@/components/theme';
+import { getBool, SETTING_KEYS } from '@/services/settings';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -16,6 +17,8 @@ const TABS: { name: string; title: string; icon: IconName; iconActive: IconName 
 
 export default function TabsLayout() {
   const t = useTheme();
+  // Decided before the first frame so new users never see an empty Today screen.
+  if (!getBool(SETTING_KEYS.onboarded)) return <Redirect href="/onboarding" />;
   return (
     <Tabs
       screenOptions={{

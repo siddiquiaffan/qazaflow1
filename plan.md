@@ -70,6 +70,12 @@ Output: owed count per prayer, shown on a review screen the user can edit before
 - History grouped by friendly day labels; Progress screen with a 14-day chart and per-prayer bars.
 - Onboarding uses a native calendar for the start date and keeps edits in sync with the estimate.
 - Light haptics, accessible labels and roles on every control, 48dp+ touch targets.
+- Optional daily goal shown on Today; milestone feedback when a prayer, the daily goal, or everything is completed.
+- Forgot to log? The "log several" sheet can record prayers for yesterday, so streaks stay honest.
+- "Log a full day" appears as one row in History; History loads older entries as you scroll (no cap).
+- New phone: onboarding offers "Restore backup" from Google Drive before asking for any numbers.
+- A dismissible nudge suggests setting up backup once there is real progress to protect.
+- The number dialog sits near the top of the screen so the keyboard never covers its buttons.
 
 ## Backup and restore
 
@@ -102,6 +108,7 @@ src/components/      shared UI
 2. Estimate calculator + tests ✅
 3. Home, logging, undo, history ✅
 4. Stats, multiple reminders, redesign, app icon ✅
+   - UX pass: goal, milestones, backdated logging, grouped history, restore on onboarding ✅
 5. Localisation (Urdu, Hindi, Arabic)
 6. Store listing and assets
 

@@ -4,6 +4,8 @@ import { db, schema } from '@/db/client';
 
 export const SETTING_KEYS = {
   onboarded: 'onboarded',
+  dailyGoal: 'daily_goal',
+  backupNudgeDismissed: 'backup_nudge_dismissed',
   deviceId: 'device_id',
   autoBackup: 'auto_backup',
   lastBackupAt: 'last_backup_at',
@@ -46,4 +48,14 @@ export function getNumber(key: SettingKey, fallback: number): number {
 
 export function touchLocalChange(): void {
   setSetting(SETTING_KEYS.lastLocalChangeAt, String(Date.now()));
+}
+
+/** Prayers to make up per day. 0 means no goal. */
+export function getDailyGoal(): number {
+  return getNumber(SETTING_KEYS.dailyGoal, 0);
+}
+
+export function setDailyGoal(goal: number): void {
+  setSetting(SETTING_KEYS.dailyGoal, String(goal));
+  touchLocalChange();
 }

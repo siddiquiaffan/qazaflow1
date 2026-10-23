@@ -1,4 +1,4 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { db, schema } from '@/db/client';
 import { emptyCounts, PRAYERS, type Prayer, type PrayerCounts } from '@/domain/prayers';
@@ -83,7 +83,7 @@ export function undoLast() {
   return last;
 }
 
-export function listCompletions(limit = 500) {
+export function listCompletions(limit = 300) {
   return db
     .select()
     .from(schema.completions)
@@ -93,8 +93,17 @@ export function listCompletions(limit = 500) {
 }
 
 export function deleteCompletion(id: number): void {
-  db.delete(schema.completions).where(eq(schema.completions.id, id)).run();
+  deleteCompletions([id]);
+}
+
+export function deleteCompletions(ids: number[]): void {
+  if (ids.length === 0) return;
+  db.delete(schema.completions).where(inArray(schema.completions.id, ids)).run();
   touchLocalChange();
+}
+
+export function countCompletions(): number {
+  return Number(db.select({ n: sql<number>`count(*)` }).from(schema.completions).get()?.n ?? 0);
 }
 
 /** Change the amount owed for a prayer by recording an adjustment, so history stays intact. */

@@ -1,4 +1,4 @@
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -7,20 +7,17 @@ import { useTheme } from '@/components/theme';
 import { ToastHost } from '@/components/Toast';
 import '@/services/autoBackup';
 import { syncReminders } from '@/services/reminders';
-import { getBool, SETTING_KEYS } from '@/services/settings';
 import { useLedger } from '@/store';
 
 export default function RootLayout() {
   const t = useTheme();
-  const router = useRouter();
   const refresh = useLedger((s) => s.refresh);
 
   useEffect(() => {
     refresh();
-    if (!getBool(SETTING_KEYS.onboarded)) router.replace('/onboarding');
     // Keep scheduled notifications in line with the saved reminders (e.g. after an update or restore).
     syncReminders().catch(() => {});
-  }, [refresh, router]);
+  }, [refresh]);
 
   return (
     <SafeAreaProvider>

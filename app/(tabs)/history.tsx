@@ -1,55 +1,154 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert, SectionList, View } from 'react-native';
 
 import { PRAYER_ICONS } from '@/components/prayerMeta';
 import { ScreenHeader } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { useTheme } from '@/components/theme';
-import { EmptyState, Group, IconButton, T } from '@/components/ui';
+import { EmptyState, Group, IconBadge, IconButton, T } from '@/components/ui';
 import { dateFromKey, friendlyDay, pluralize } from '@/domain/format';
-import { isPrayer, PRAYER_LABELS } from '@/domain/prayers';
+import { groupEntries, type HistoryItem } from '@/domain/history';
+import { isPrayer, PRAYER_LABELS, PRAYERS } from '@/domain/prayers';
 import { dayKey } from '@/domain/stats';
-import { deleteCompletion, listCompletions } from '@/services/ledger';
+import { deleteCompletions, listCompletions } from '@/services/ledger';
 import { useLedger } from '@/store';
 
 type Row = ReturnType<typeof listCompletions>[number];
+
+const PAGE = 300;
+
+const nameOf = (prayer: string) => (isPrayer(prayer) ? PRAYER_LABELS[prayer] : prayer);
+const timeOf = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+function EntryRow({
+  leading,
+  title,
+  subtitle,
+  deleteLabel,
+  last,
+  onDelete,
+}: {
+  leading: React.ReactNode;
+  title: string;
+  subtitle: string;
+  deleteLabel: string;
+  last: boolean;
+  onDelete: () => void;
+}) {
+  const t = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: t.border,
+      }}
+    >
+      {leading}
+      <View style={{ flex: 1 }}>
+        <T variant="subheading">{title}</T>
+        <T variant="caption" color="muted" numberOfLines={2}>
+          {subtitle}
+        </T>
+      </View>
+      <IconButton icon="trash-outline" label={deleteLabel} variant="danger" size={40} onPress={onDelete} />
+    </View>
+  );
+}
 
 export default function HistoryScreen() {
   const t = useTheme();
   const { version, refresh } = useLedger();
   const showToast = useToast((s) => s.show);
+  const [limit, setLimit] = useState(PAGE);
 
-  const sections = useMemo(() => {
-    const groups = new Map<string, Row[]>();
-    for (const row of listCompletions()) {
+  const { sections, mayHaveMore } = useMemo(() => {
+    const rows = listCompletions(limit);
+    const byDay = new Map<string, Row[]>();
+    for (const row of rows) {
       const key = dayKey(row.completedAt);
-      groups.set(key, [...(groups.get(key) ?? []), row]);
+      byDay.set(key, [...(byDay.get(key) ?? []), row]);
     }
     const now = new Date();
-    return [...groups.entries()].map(([key, data]) => ({
-      key,
-      title: friendlyDay(dateFromKey(key), now),
-      total: data.reduce((s, r) => s + r.count, 0),
-      data: [data], // one item per day so each day renders as a single grouped card
-    }));
+    return {
+      mayHaveMore: rows.length >= limit,
+      sections: [...byDay.entries()].map(([key, dayRows]) => ({
+        key,
+        title: friendlyDay(dateFromKey(key), now),
+        total: dayRows.reduce((s, r) => s + r.count, 0),
+        data: [groupEntries(dayRows)], // one item per day so each day renders as a single grouped card
+      })),
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [version]);
+  }, [version, limit]);
 
-  const confirmDelete = (row: Row) => {
-    const name = isPrayer(row.prayer) ? PRAYER_LABELS[row.prayer] : row.prayer;
-    Alert.alert(`Remove ${name} × ${row.count}?`, 'It will be added back to what remains.', [
+  const confirmDelete = (title: string, ids: number[]) =>
+    Alert.alert(`Remove ${title}?`, 'It will be added back to what remains.', [
       { text: 'Keep', style: 'cancel' },
       {
         text: 'Remove',
         style: 'destructive',
         onPress: () => {
-          deleteCompletion(row.id);
+          deleteCompletions(ids);
           refresh();
           showToast('Entry removed');
         },
       },
     ]);
+
+  const renderItem = (item: HistoryItem<Row>, last: boolean) => {
+    if (item.kind === 'batch') {
+      const names = [...item.rows]
+        .sort((a, b) => PRAYERS.indexOf(a.prayer as never) - PRAYERS.indexOf(b.prayer as never))
+        .map((r) => nameOf(r.prayer))
+        .join(', ');
+      return (
+        <EntryRow
+          key={item.rows[0].id}
+          leading={<IconBadge name="checkmark-done" size={40} />}
+          title={`Full day · ${pluralize(item.total, 'prayer')}`}
+          subtitle={`${timeOf(item.completedAt)} · ${names}`}
+          deleteLabel="Remove full day entry"
+          last={last}
+          onDelete={() => confirmDelete('this full day', item.rows.map((r) => r.id))}
+        />
+      );
+    }
+    const { row } = item;
+    const known = isPrayer(row.prayer);
+    return (
+      <EntryRow
+        key={row.id}
+        leading={
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: t.primarySoft,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <MaterialCommunityIcons
+              name={known ? PRAYER_ICONS[row.prayer as keyof typeof PRAYER_ICONS] : 'help-circle-outline'}
+              size={22}
+              color={t.primary}
+            />
+          </View>
+        }
+        title={`${nameOf(row.prayer)}${row.count > 1 ? ` × ${row.count}` : ''}`}
+        subtitle={timeOf(row.completedAt)}
+        deleteLabel={`Remove ${nameOf(row.prayer)} entry`}
+        last={last}
+        onDelete={() => confirmDelete(`${nameOf(row.prayer)}${row.count > 1 ? ` × ${row.count}` : ''}`, [row.id])}
+      />
+    );
   };
 
   return (
@@ -66,8 +165,12 @@ export default function HistoryScreen() {
           sections={sections}
           showsVerticalScrollIndicator={false}
           stickySectionHeadersEnabled={false}
-          keyExtractor={(item) => String(item[0].id)}
+          keyExtractor={(items) => String(items[0].kind === 'batch' ? items[0].rows[0].id : items[0].row.id)}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
+          onEndReachedThreshold={0.5}
+          onEndReached={() => {
+            if (mayHaveMore) setLimit((l) => l + PAGE);
+          }}
           renderSectionHeader={({ section }) => (
             <View
               style={{
@@ -85,59 +188,8 @@ export default function HistoryScreen() {
               </T>
             </View>
           )}
-          renderItem={({ item: rows }) => (
-            <Group>
-              {rows.map((row, i) => {
-                const known = isPrayer(row.prayer);
-                return (
-                  <View
-                    key={row.id}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 14,
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      borderBottomWidth: i === rows.length - 1 ? 0 : 1,
-                      borderBottomColor: t.border,
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 20,
-                        backgroundColor: t.primarySoft,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <MaterialCommunityIcons
-                        name={known ? PRAYER_ICONS[row.prayer as keyof typeof PRAYER_ICONS] : 'help-circle-outline'}
-                        size={22}
-                        color={t.primary}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <T variant="subheading">
-                        {known ? PRAYER_LABELS[row.prayer as keyof typeof PRAYER_LABELS] : row.prayer}
-                        {row.count > 1 ? ` × ${row.count}` : ''}
-                      </T>
-                      <T variant="caption" color="muted">
-                        {new Date(row.completedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                      </T>
-                    </View>
-                    <IconButton
-                      icon="trash-outline"
-                      label={`Remove ${known ? PRAYER_LABELS[row.prayer as keyof typeof PRAYER_LABELS] : row.prayer} entry`}
-                      variant="danger"
-                      size={40}
-                      onPress={() => confirmDelete(row)}
-                    />
-                  </View>
-                );
-              })}
-            </Group>
+          renderItem={({ item: items }) => (
+            <Group>{items.map((item, i) => renderItem(item, i === items.length - 1))}</Group>
           )}
         />
       )}

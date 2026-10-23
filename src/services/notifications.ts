@@ -16,17 +16,19 @@ export async function hasPermission(): Promise<boolean> {
   return (await Notifications.getPermissionsAsync()).granted;
 }
 
-export async function ensurePermission(): Promise<boolean> {
-  if (await hasPermission()) return true;
-  return (await Notifications.requestPermissionsAsync()).granted;
-}
-
 export async function ensureChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
     name: 'Daily reminders',
     importance: Notifications.AndroidImportance.DEFAULT,
   });
+}
+
+export async function ensurePermission(): Promise<boolean> {
+  if (await hasPermission()) return true;
+  // On Android 13+ the system prompt only appears once a notification channel exists.
+  await ensureChannel();
+  return (await Notifications.requestPermissionsAsync()).granted;
 }
 
 export async function cancelAll(): Promise<void> {

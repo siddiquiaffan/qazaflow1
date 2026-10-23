@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { radius, spacing, useTheme } from './theme';
 import { Button, Field, IconButton, T } from './ui';
 
-/** Bottom-sheet prompt for entering a whole number, with quick -/+ steppers. */
+/** Dialog for entering a whole number, with quick -/+ steppers. */
 export function NumberPrompt({
   visible,
   title,
@@ -12,6 +12,7 @@ export function NumberPrompt({
   initial,
   confirmLabel = 'Save',
   max,
+  extra,
   onCancel,
   onConfirm,
 }: {
@@ -21,6 +22,8 @@ export function NumberPrompt({
   initial: number;
   confirmLabel?: string;
   max?: number;
+  /** Optional controls shown under the number field (e.g. a day selector). */
+  extra?: ReactNode;
   onCancel: () => void;
   onConfirm: (value: number) => void;
 }) {
@@ -40,11 +43,10 @@ export function NumberPrompt({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={[styles.backdrop, { backgroundColor: t.overlay }]} onPress={onCancel}>
           <Pressable style={[styles.sheet, { backgroundColor: t.surface }]} onPress={() => {}}>
-            <View style={[styles.handle, { backgroundColor: t.border }]} />
             <T variant="heading">{title}</T>
             {hint ? (
               <T variant="caption" color="muted">
@@ -64,6 +66,7 @@ export function NumberPrompt({
               />
               <IconButton icon="add" label="Increase" onPress={() => step(1)} size={52} />
             </View>
+            {extra}
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               <Button label="Cancel" variant="tonal" onPress={onCancel} style={{ flex: 1 }} />
               <Button label={confirmLabel} disabled={!valid} onPress={() => onConfirm(parsed)} style={{ flex: 1 }} />
@@ -76,13 +79,8 @@ export function NumberPrompt({
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, justifyContent: 'flex-end' },
-  sheet: {
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
-    gap: spacing.md,
-  },
-  handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, marginBottom: 4 },
+  // Anchored near the top so the number pad can never cover the buttons, whatever the
+  // keyboard-resize behaviour of the device.
+  backdrop: { flex: 1, justifyContent: 'flex-start', paddingTop: '14%', paddingHorizontal: spacing.md },
+  sheet: { borderRadius: radius.xl, padding: spacing.lg, gap: spacing.md },
 });

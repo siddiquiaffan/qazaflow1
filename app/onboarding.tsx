@@ -1,14 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DateTimeSheet } from '@/components/DateTimeSheet';
+import { confirmRestore } from '@/components/restoreFlow';
 import { spacing, useTheme } from '@/components/theme';
 import { Button, Card, Field, IconBadge, SectionLabel, Segmented, T } from '@/components/ui';
 import { estimateFromDates, estimateFromYearsMonths, normalizeManual } from '@/domain/estimate';
 import { PRAYER_LABELS, PRAYERS, totalOf, type Prayer, type PrayerCounts } from '@/domain/prayers';
+import { fetchRemoteSnapshot, signIn } from '@/services/drive';
 import { saveInitialDebt } from '@/services/ledger';
 import { useLedger } from '@/store';
 
@@ -52,6 +54,7 @@ export default function Onboarding() {
   const [method, setMethod] = useState<Method>('dates');
   const [startDate, setStartDate] = useState<Date>(fiveYearsAgo);
   const [showDate, setShowDate] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [years, setYears] = useState('');
   const [months, setMonths] = useState('');
   const [excluded, setExcluded] = useState('');
@@ -78,6 +81,27 @@ export default function Onboarding() {
   );
   const total = totalOf(final);
 
+  /** New phone? Sign in and pull the last backup instead of starting over. */
+  const restoreFromDrive = async () => {
+    setRestoring(true);
+    try {
+      await signIn();
+      const snap = await fetchRemoteSnapshot();
+      if (!snap) {
+        Alert.alert('No backup found', 'There is no QazaFlow backup in this Google account. You can set things up below instead.');
+        return;
+      }
+      confirmRestore(snap, () => {
+        refresh();
+        router.replace('/');
+      });
+    } catch (e) {
+      Alert.alert('Backup', e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   const save = () => {
     saveInitialDebt(final);
     refresh();
@@ -103,6 +127,23 @@ export default function Onboarding() {
             Tell us roughly how many prayers you have missed. An estimate is fine — you can change it at any time.
           </T>
         </View>
+
+        <Card tone="tinted" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <IconBadge name="cloud-download-outline" size={44} />
+          <View style={{ flex: 1, gap: 8 }}>
+            <View>
+              <T variant="subheading">Already use QazaFlow?</T>
+              <T variant="caption" color="muted">
+                Bring your progress over from Google Drive.
+              </T>
+            </View>
+            <View style={{ flexDirection: 'row' }}>
+              <Button label="Restore backup" size="sm" icon="logo-google" loading={restoring} onPress={restoreFromDrive} />
+            </View>
+          </View>
+        </Card>
+
+        <SectionLabel>Or start fresh</SectionLabel>
 
         <Segmented options={METHODS} value={method} onChange={setMethod} />
         <T variant="caption" color="muted" style={{ marginTop: -4 }}>

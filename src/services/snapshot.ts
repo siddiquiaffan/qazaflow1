@@ -47,7 +47,7 @@ export const snapshotSchema = z.object({
 export type Snapshot = z.infer<typeof snapshotSchema>;
 
 /** Settings that travel with a backup. Device-specific values (ids, backup state) do not. */
-const PORTABLE_SETTINGS = [SETTING_KEYS.onboarded] as const;
+const PORTABLE_SETTINGS = [SETTING_KEYS.onboarded, SETTING_KEYS.dailyGoal] as const;
 
 export function getDeviceId(): string {
   const existing = getSetting(SETTING_KEYS.deviceId);

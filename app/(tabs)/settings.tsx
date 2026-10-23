@@ -2,20 +2,21 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Linking, Pressable, View } from 'react-native';
 
 import { DateTimeSheet } from '@/components/DateTimeSheet';
 import { NumberPrompt } from '@/components/NumberPrompt';
+import { confirmRestore } from '@/components/restoreFlow';
 import { PRAYER_ICONS } from '@/components/prayerMeta';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { useTheme } from '@/components/theme';
 import { Button, Card, Group, IconBadge, IconButton, ListRow, SectionLabel, Switch, T } from '@/components/ui';
+import { clampGoal } from '@/domain/goal';
 import { PRAYER_LABELS, PRAYERS, type Prayer } from '@/domain/prayers';
 import { dateToTime, formatTime, summarizeReminders, timeToDate } from '@/domain/reminders';
 import { setAutoBackup } from '@/services/autoBackup';
 import {
-  applySnapshot,
   BackupError,
   backupNow,
   fetchRemoteSnapshot,
@@ -34,8 +35,7 @@ import {
   updateReminderTime,
   type Reminder,
 } from '@/services/reminders';
-import { getBool, getNumber, setBool, SETTING_KEYS } from '@/services/settings';
-import { summarizeSnapshot } from '@/services/snapshot';
+import { getBool, getDailyGoal, getNumber, setBool, setDailyGoal, SETTING_KEYS } from '@/services/settings';
 import { useLedger } from '@/store';
 
 type PickerTarget = { kind: 'add' } | { kind: 'edit'; reminder: Reminder };
@@ -50,13 +50,15 @@ export default function SettingsScreen() {
   const { summary, refresh } = useLedger();
 
   const [editing, setEditing] = useState<Prayer | null>(null);
+  const [goal, setGoal] = useState(getDailyGoal);
+  const [editingGoal, setEditingGoal] = useState(false);
 
-  const [reminders, setReminders] = useState<Reminder[]>(listReminders());
+  const [reminders, setReminders] = useState<Reminder[]>(listReminders);
   const [picker, setPicker] = useState<PickerTarget | null>(null);
 
-  const [email, setEmail] = useState(getSignedInEmail());
-  const [autoOn, setAutoOn] = useState(getBool(SETTING_KEYS.autoBackup));
-  const [lastBackup, setLastBackup] = useState(getNumber(SETTING_KEYS.lastBackupAt, 0));
+  const [email, setEmail] = useState(getSignedInEmail);
+  const [autoOn, setAutoOn] = useState(() => getBool(SETTING_KEYS.autoBackup));
+  const [lastBackup, setLastBackup] = useState(() => getNumber(SETTING_KEYS.lastBackupAt, 0));
   const [busy, setBusy] = useState<null | 'signin' | 'backup' | 'restore'>(null);
 
   /* ───────── Reminders ───────── */
@@ -129,28 +131,12 @@ export default function SettingsScreen() {
         Alert.alert('No backup found', 'There is no backup in this Google account yet.');
         return;
       }
-      const info = summarizeSnapshot(snap);
-      const newerLocal = getNumber(SETTING_KEYS.lastLocalChangeAt, 0) > info.createdAt;
-      Alert.alert(
-        'Restore this backup?',
-        `Saved ${fmt(info.createdAt)}\n${info.totalRemaining.toLocaleString()} remaining · ${info.totalCompleted.toLocaleString()} completed` +
-          (newerLocal ? '\n\nThis phone has newer changes that will be replaced.' : '') +
-          '\n\nYour current data on this phone will be replaced.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Restore',
-            style: 'destructive',
-            onPress: async () => {
-              await applySnapshot(snap);
-              refresh();
-              setReminders(listReminders());
-              router.replace('/');
-              showToast('Backup restored');
-            },
-          },
-        ],
-      );
+      confirmRestore(snap, () => {
+        refresh();
+        setReminders(listReminders());
+        router.replace('/');
+        showToast('Backup restored');
+      });
     });
 
   const version = Constants.expoConfig?.version ?? '';
@@ -212,6 +198,25 @@ export default function SettingsScreen() {
         <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: t.border }}>
           <Button label="Add a reminder" icon="add" variant="tonal" onPress={() => setPicker({ kind: 'add' })} />
         </View>
+        <ListRow
+          icon="help-circle-outline"
+          title="Reminders not arriving?"
+          subtitle="Some phones pause background apps. Allow notifications and unrestricted battery use for QazaFlow."
+          onPress={() => Linking.openSettings()}
+          last
+        />
+      </Group>
+
+      {/* Goal */}
+      <SectionLabel>Daily goal</SectionLabel>
+      <Group>
+        <ListRow
+          icon="flag-outline"
+          title="Prayers to make up each day"
+          subtitle={goal > 0 ? `${goal} a day · shown on the Today screen` : 'Off · tap to set a goal'}
+          onPress={() => setEditingGoal(true)}
+          last
+        />
       </Group>
 
       {/* Counts */}
@@ -360,6 +365,23 @@ export default function SettingsScreen() {
             refresh();
           }
           setEditing(null);
+        }}
+      />
+
+      <NumberPrompt
+        visible={editingGoal}
+        title="Daily goal"
+        hint="How many prayers would you like to make up each day? Set 0 to turn the goal off."
+        initial={goal}
+        max={100}
+        onCancel={() => setEditingGoal(false)}
+        onConfirm={(n) => {
+          const next = clampGoal(n);
+          setDailyGoal(next);
+          setGoal(next);
+          refresh();
+          setEditingGoal(false);
+          showToast(next > 0 ? `Daily goal set to ${next}` : 'Daily goal turned off');
         }}
       />
 

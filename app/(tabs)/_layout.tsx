@@ -1,29 +1,48 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { Text, type ColorValue } from 'react-native';
+import type { ComponentProps } from 'react';
+import { StyleSheet } from 'react-native';
 
 import { useTheme } from '@/components/theme';
 
-function Glyph({ char, color }: { char: string; color: ColorValue }) {
-  return <Text style={{ fontSize: 20, color }}>{char}</Text>;
-}
+type IconName = ComponentProps<typeof Ionicons>['name'];
+
+const TABS: { name: string; title: string; icon: IconName; iconActive: IconName }[] = [
+  { name: 'index', title: 'Today', icon: 'home-outline', iconActive: 'home' },
+  { name: 'history', title: 'History', icon: 'time-outline', iconActive: 'time' },
+  { name: 'stats', title: 'Progress', icon: 'stats-chart-outline', iconActive: 'stats-chart' },
+  { name: 'settings', title: 'Settings', icon: 'settings-outline', iconActive: 'settings' },
+];
 
 export default function TabsLayout() {
   const t = useTheme();
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: t.bg },
-        headerTitleStyle: { color: t.text },
-        headerShadowVisible: false,
+        headerShown: false,
         tabBarActiveTintColor: t.primary,
         tabBarInactiveTintColor: t.muted,
-        tabBarStyle: { backgroundColor: t.card, borderTopColor: t.border },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '700' },
+        tabBarStyle: {
+          backgroundColor: t.surface,
+          borderTopColor: t.border,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          elevation: 0,
+        },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Today', tabBarIcon: ({ color }) => <Glyph char="◉" color={color} /> }} />
-      <Tabs.Screen name="history" options={{ title: 'History', tabBarIcon: ({ color }) => <Glyph char="☰" color={color} /> }} />
-      <Tabs.Screen name="stats" options={{ title: 'Progress', tabBarIcon: ({ color }) => <Glyph char="▲" color={color} /> }} />
-      <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: ({ color }) => <Glyph char="⚙" color={color} /> }} />
+      {TABS.map((tab) => (
+        <Tabs.Screen
+          key={tab.name}
+          name={tab.name}
+          options={{
+            title: tab.title,
+            tabBarIcon: ({ color, focused, size }) => (
+              <Ionicons name={focused ? tab.iconActive : tab.icon} size={size} color={color as string} />
+            ),
+          }}
+        />
+      ))}
     </Tabs>
   );
 }

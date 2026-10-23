@@ -4,9 +4,6 @@ import { db, schema } from '@/db/client';
 
 export const SETTING_KEYS = {
   onboarded: 'onboarded',
-  reminderEnabled: 'reminder_enabled',
-  reminderHour: 'reminder_hour',
-  reminderMinute: 'reminder_minute',
   deviceId: 'device_id',
   autoBackup: 'auto_backup',
   lastBackupAt: 'last_backup_at',

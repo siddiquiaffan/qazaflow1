@@ -71,3 +71,29 @@ export function sumByPrayer(rows: { prayer: string; value: number }[]): PrayerCo
   }
   return out;
 }
+
+export interface DayTotal {
+  key: string;
+  date: Date;
+  count: number;
+}
+
+/** Completions per calendar day for the last `days` days, oldest first, ending today. */
+export function dailyTotals(entries: { completedAt: number; count: number }[], now: number, days: number): DayTotal[] {
+  const totals = new Map<string, number>();
+  for (const e of entries) totals.set(dayKey(e.completedAt), (totals.get(dayKey(e.completedAt)) ?? 0) + e.count);
+  const out: DayTotal[] = [];
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = dayKey(d.getTime());
+    out.push({ key, date: d, count: totals.get(key) ?? 0 });
+  }
+  return out;
+}
+
+/** Sum of completions on the same calendar day as `now`. */
+export function completedToday(entries: { completedAt: number; count: number }[], now: number): number {
+  const key = dayKey(now);
+  return entries.filter((e) => dayKey(e.completedAt) === key).reduce((s, e) => s + e.count, 0);
+}

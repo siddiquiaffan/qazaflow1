@@ -1,6 +1,8 @@
 import { emptyCounts } from '../prayers';
 import {
   averagePerDay,
+  completedToday,
+  dailyTotals,
   currentStreak,
   progressFraction,
   projectedFinish,
@@ -47,5 +49,19 @@ describe('stats', () => {
     const done = projectedFinish(20, 2, now);
     expect(done && Math.round((done.getTime() - now) / DAY)).toBe(10);
     expect(projectedFinish(20, 0, now)).toBeNull();
+  });
+
+  it('buckets completions per day, oldest first', () => {
+    const now = new Date(2026, 9, 22, 12).getTime();
+    const entries = [
+      { completedAt: now, count: 2 },
+      { completedAt: now - 1000, count: 1 },
+      { completedAt: now - 2 * DAY, count: 5 },
+      { completedAt: now - 30 * DAY, count: 9 },
+    ];
+    const days = dailyTotals(entries, now, 3);
+    expect(days.map((d) => d.count)).toEqual([5, 0, 3]);
+    expect(days).toHaveLength(3);
+    expect(completedToday(entries, now)).toBe(3);
   });
 });

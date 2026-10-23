@@ -1,6 +1,6 @@
 # QazaFlow
 
-Track and complete your missed prayers. Offline-first, with optional backup to your own Google Drive.
+Track and complete your missed prayers. Offline-first, with multiple daily reminders and optional backup to your own Google Drive.
 
 See [plan.md](plan.md) for the full plan.
 

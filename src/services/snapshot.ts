@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db, schema } from '@/db/client';
 import { SCHEMA_VERSION } from '@/db/migrations';
 import { isPrayer, PRAYERS, type Prayer } from '@/domain/prayers';
+import { remindersFromLegacy } from '@/domain/reminders';
 
 import { getSetting, setBool, setSetting, SETTING_KEYS } from './settings';
 
@@ -35,6 +36,10 @@ export const snapshotSchema = z.object({
         note: z.string().nullable(),
       }),
     ),
+    // Added in schema v2; older backups simply don't have it.
+    reminders: z
+      .array(z.object({ hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59), enabled: z.boolean() }))
+      .default([]),
     settings: z.record(z.string(), z.string()),
   }),
 });
@@ -42,12 +47,7 @@ export const snapshotSchema = z.object({
 export type Snapshot = z.infer<typeof snapshotSchema>;
 
 /** Settings that travel with a backup. Device-specific values (ids, backup state) do not. */
-const PORTABLE_SETTINGS = [
-  SETTING_KEYS.onboarded,
-  SETTING_KEYS.reminderEnabled,
-  SETTING_KEYS.reminderHour,
-  SETTING_KEYS.reminderMinute,
-] as const;
+const PORTABLE_SETTINGS = [SETTING_KEYS.onboarded] as const;
 
 export function getDeviceId(): string {
   const existing = getSetting(SETTING_KEYS.deviceId);
@@ -72,6 +72,11 @@ export function createSnapshot(): Snapshot {
       prayerDebt: known(db.select().from(schema.prayerDebt).all()),
       adjustments: known(db.select().from(schema.adjustments).all()).map(({ prayer, delta, reason, createdAt }) => ({ prayer, delta, reason, createdAt })),
       completions: known(db.select().from(schema.completions).all()).map(({ prayer, count, completedAt, note }) => ({ prayer, count, completedAt, note })),
+      reminders: db
+        .select()
+        .from(schema.reminders)
+        .all()
+        .map(({ hour, minute, enabled }) => ({ hour, minute, enabled })),
       settings: settingsData,
     },
   };
@@ -112,10 +117,13 @@ export function restoreSnapshot(s: Snapshot): void {
     tx.delete(schema.completions).run();
     tx.delete(schema.adjustments).run();
     tx.delete(schema.prayerDebt).run();
+    tx.delete(schema.reminders).run();
 
     for (const r of s.data.prayerDebt) tx.insert(schema.prayerDebt).values(r).run();
     for (const r of s.data.adjustments) tx.insert(schema.adjustments).values(r).run();
     for (const r of s.data.completions) tx.insert(schema.completions).values(r).run();
+    const reminders = s.data.reminders.length > 0 ? s.data.reminders : remindersFromLegacy(s.data.settings);
+    for (const r of reminders) tx.insert(schema.reminders).values(r).run();
   });
 
   for (const key of PORTABLE_SETTINGS) {

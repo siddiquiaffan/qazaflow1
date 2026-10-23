@@ -14,7 +14,7 @@
     "android": {
       "package": "com.siddiquiaffan.qazaflow",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0B4F44",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -23,11 +23,23 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0B4F44",
+          "dark": {
+            "backgroundColor": "#0B1512"
+          }
+        }
+      ],
       "expo-sqlite",
       [
         "expo-notifications",
         {
-          "color": "#0F766E"
+          "color": "#0E6B5C"
         }
       ],
       "expo-background-task",

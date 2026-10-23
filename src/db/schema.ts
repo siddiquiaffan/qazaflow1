@@ -21,6 +21,13 @@ export const completions = sqliteTable('completions', {
   note: text('note'),
 });
 
+export const reminders = sqliteTable('reminders', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  hour: integer('hour').notNull(),
+  minute: integer('minute').notNull(),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+});
+
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),

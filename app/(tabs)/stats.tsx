@@ -1,22 +1,45 @@
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMemo } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { View } from 'react-native';
 
-import { spacing, useTheme } from '@/components/theme';
-import { Body, Card, ProgressBar } from '@/components/ui';
+import { PRAYER_ICONS } from '@/components/prayerMeta';
+import { Screen } from '@/components/Screen';
+import { useTheme } from '@/components/theme';
+import { Card, IconBadge, ProgressBar, SectionLabel, T, type IconName } from '@/components/ui';
 import { PRAYER_LABELS, PRAYERS } from '@/domain/prayers';
-import { averagePerDay, currentStreak, progressFraction, projectedFinish } from '@/domain/stats';
+import {
+  averagePerDay,
+  currentStreak,
+  dailyTotals,
+  progressFraction,
+  projectedFinish,
+} from '@/domain/stats';
 import { completionTimestamps } from '@/services/ledger';
 import { useLedger } from '@/store';
 
-function Stat({ label, value }: { label: string; value: string }) {
-  const t = useTheme();
+function Tile({ icon, label, value, note }: { icon: IconName; label: string; value: string; note?: string }) {
   return (
-    <Card style={{ flex: 1, gap: spacing.xs }}>
-      <Text style={{ color: t.muted, fontSize: 13 }}>{label}</Text>
-      <Text style={{ color: t.text, fontSize: 24, fontWeight: '700' }}>{value}</Text>
+    <Card style={{ flex: 1, gap: 10 }}>
+      <IconBadge name={icon} size={36} />
+      <View>
+        <T variant="heading" adjustsFontSizeToFit numberOfLines={1}>
+          {value}
+        </T>
+        <T variant="caption" color="muted">
+          {label}
+        </T>
+        {note ? (
+          <T variant="caption" color="muted">
+            {note}
+          </T>
+        ) : null}
+      </View>
     </Card>
   );
 }
+
+const CHART_DAYS = 14;
+const CHART_HEIGHT = 110;
 
 export default function StatsScreen() {
   const t = useTheme();
@@ -27,52 +50,99 @@ export default function StatsScreen() {
     const entries = completionTimestamps();
     const pace7 = averagePerDay(entries, now, 7);
     const pace30 = averagePerDay(entries, now, 30);
-    const pace = pace7 > 0 ? pace7 : pace30;
     return {
       streak: currentStreak(entries.map((e) => e.completedAt), now),
       pace7,
-      pace30,
-      finish: projectedFinish(summary.totalRemaining, pace, now),
+      finish: projectedFinish(summary.totalRemaining, pace7 > 0 ? pace7 : pace30, now),
+      days: dailyTotals(entries, now, CHART_DAYS),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version, summary.totalRemaining]);
 
+  const peak = Math.max(1, ...stats.days.map((d) => d.count));
+  const completed = summary.totalOwed - summary.totalRemaining;
   const finishText =
     summary.totalRemaining === 0
-      ? 'All done'
+      ? 'Done'
       : stats.finish
         ? stats.finish.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
-        : 'Log some to see';
+        : '—';
 
   return (
-    <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.md }} style={{ backgroundColor: t.bg }}>
-      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        <Stat label="Day streak" value={String(stats.streak)} />
-        <Stat label="Per day (7d)" value={stats.pace7.toFixed(1)} />
+    <Screen title="Progress" subtitle="Your pace and what is left">
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <Tile icon="flame-outline" label="Day streak" value={String(stats.streak)} />
+        <Tile icon="checkmark-done-outline" label="Completed" value={completed.toLocaleString()} />
       </View>
-      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        <Stat label="Per day (30d)" value={stats.pace30.toFixed(1)} />
-        <Stat label="Projected finish" value={finishText} />
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <Tile icon="speedometer-outline" label="Per day this week" value={stats.pace7.toFixed(1)} />
+        <Tile
+          icon="calendar-outline"
+          label="Projected finish"
+          value={finishText}
+          note={stats.finish || summary.totalRemaining === 0 ? undefined : 'Log some to see'}
+        />
       </View>
 
-      <Card style={{ gap: spacing.md }}>
-        <Text style={{ color: t.text, fontSize: 18, fontWeight: '600' }}>By prayer</Text>
+      <SectionLabel>Last 14 days</SectionLabel>
+      <Card style={{ gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: CHART_HEIGHT, gap: 6 }}>
+          {stats.days.map((d, i) => {
+            const isToday = i === stats.days.length - 1;
+            const h = d.count === 0 ? 4 : Math.max(8, (d.count / peak) * CHART_HEIGHT);
+            return (
+              <View
+                key={d.key}
+                accessible
+                accessibilityLabel={`${d.date.toLocaleDateString(undefined, { weekday: 'long' })}: ${d.count} prayers`}
+                style={{
+                  flex: 1,
+                  height: h,
+                  borderRadius: 6,
+                  backgroundColor: d.count === 0 ? t.track : t.primary,
+                  opacity: d.count === 0 ? 1 : isToday ? 1 : 0.55,
+                }}
+              />
+            );
+          })}
+        </View>
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {stats.days.map((d) => (
+            <T key={d.key} variant="caption" color="muted" style={{ flex: 1, textAlign: 'center', fontSize: 11 }}>
+              {d.date.toLocaleDateString(undefined, { weekday: 'narrow' })}
+            </T>
+          ))}
+        </View>
+        <T variant="caption" color="muted">
+          {peak > 1 || stats.days.some((d) => d.count > 0)
+            ? `Busiest day: ${peak} prayers`
+            : 'Your daily totals will show up here.'}
+        </T>
+      </Card>
+
+      <SectionLabel>By prayer</SectionLabel>
+      <Card style={{ gap: 18 }}>
         {PRAYERS.map((p) => {
           const owed = Math.max(0, summary.owed[p] + summary.adjustments[p]);
-          const f = progressFraction(summary.remaining[p], owed);
           return (
-            <View key={p} style={{ gap: spacing.xs }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Body>{PRAYER_LABELS[p]}</Body>
-                <Body muted>
+            <View key={p} style={{ gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <MaterialCommunityIcons name={PRAYER_ICONS[p]} size={20} color={t.primary} />
+                <T variant="subheading" style={{ flex: 1 }}>
+                  {PRAYER_LABELS[p]}
+                </T>
+                {summary.remaining[p] === 0 && owed > 0 ? (
+                  <Ionicons name="checkmark-circle" size={18} color={t.success} />
+                ) : null}
+                <T variant="caption" color="muted">
                   {summary.remaining[p].toLocaleString()} left of {owed.toLocaleString()}
-                </Body>
+                </T>
               </View>
-              <ProgressBar fraction={f} />
+              <ProgressBar fraction={progressFraction(summary.remaining[p], owed)} height={8} />
             </View>
           );
         })}
       </Card>
-    </ScrollView>
+    </Screen>
   );
 }

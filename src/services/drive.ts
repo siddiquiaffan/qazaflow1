@@ -1,5 +1,6 @@
 import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
 
+import { syncReminders } from './reminders';
 import { createSnapshot, parseSnapshot, restoreSnapshot, type Snapshot } from './snapshot';
 import { deleteSetting, getSetting, setSetting, SETTING_KEYS } from './settings';
 
@@ -133,6 +134,12 @@ export async function fetchRemoteSnapshot(): Promise<Snapshot | null> {
   return parseSnapshot(await res.text());
 }
 
-export function applySnapshot(snapshot: Snapshot): void {
+/** Replace local data with the snapshot and re-schedule its reminders. */
+export async function applySnapshot(snapshot: Snapshot): Promise<void> {
   restoreSnapshot(snapshot);
+  try {
+    await syncReminders();
+  } catch {
+    // Reminders are re-synced on next launch; a failure here must not undo the restore.
+  }
 }

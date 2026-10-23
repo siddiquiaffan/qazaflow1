@@ -33,7 +33,8 @@ A ledger design so the remaining count is always derived and every action can be
 - `prayer_debt(prayer PK, total_owed)` — initial estimate per prayer.
 - `adjustments(id, prayer, delta, reason, created_at)` — later corrections to the estimate.
 - `completions(id, prayer, count, completed_at, note)` — each logged completion.
-- `settings(key PK, value)` — onboarding inputs, reminder time, backup metadata, device id.
+- `reminders(id, hour, minute, enabled)` — any number of daily reminders (schema v2).
+- `settings(key PK, value)` — onboarding state, backup metadata, device id.
 
 `remaining(prayer) = total_owed + sum(adjustments.delta) − sum(completions.count)`, never below zero.
 
@@ -52,7 +53,23 @@ Output: owed count per prayer, shown on a review screen the user can edit before
 2. **Home** — total remaining, progress ring, one card per prayer with "+1" (long press for multiple), "Complete a full day", undo last.
 3. **History** — grouped by day; edit or delete entries.
 4. **Stats** — streak, 7/30-day pace, projected finish date.
-5. **Settings** — edit counts, daily reminder, backup/restore, reset.
+5. **Settings** — multiple daily reminders (native clock picker), edit counts, backup/restore, reset.
+
+## Reminders
+
+- Any number of daily reminders, each with its own time and on/off switch.
+- Times are chosen with the system clock picker (Android clock dialog, iOS spinner sheet).
+- One local notification is scheduled per enabled reminder (`reminder-<id>`); the schedule is rebuilt from the database on every launch, after every edit and after a restore, so it can never drift.
+- Duplicate times are rejected; deleting a reminder offers an undo.
+- The old single reminder from schema v1 is migrated automatically, and v1 backups still restore.
+
+## Design
+
+- Palette: deep emerald and warm gold on parchment, with a matching night-green dark mode (tokens in `src/components/theme.tsx`).
+- Today screen: animated progress ring, done-today / streak / pace summary, one card per prayer with a one-tap `+1`, a "log several" sheet, "Log a full day", and an undo toast after every log.
+- History grouped by friendly day labels; Progress screen with a 14-day chart and per-prayer bars.
+- Onboarding uses a native calendar for the start date and keeps edits in sync with the estimate.
+- Light haptics, accessible labels and roles on every control, 48dp+ touch targets.
 
 ## Backup and restore
 
@@ -81,14 +98,14 @@ src/components/      shared UI
 
 ## Milestones
 
-1. Scaffold, DB, CI, core screens and Drive backup (first commit)
-2. Estimate calculator + tests
-3. Home, logging, undo, history
-4. Stats and reminders
-5. Drive backup and restore
-6. Polish: icons, accessibility, empty states, store assets
+1. Scaffold, DB, CI, core screens and Drive backup ✅
+2. Estimate calculator + tests ✅
+3. Home, logging, undo, history ✅
+4. Stats, multiple reminders, redesign, app icon ✅
+5. Localisation (Urdu, Hindi, Arabic)
+6. Store listing and assets
 
 ## Open questions
 
-- Add an option to exclude days (e.g. illness) with a simple date-range picker? Included as a simple "excluded days" number for now.
+- Excluded days are a simple number for now; a date-range picker could come later.
 - Localisation (Urdu, Hindi, Arabic) after the first release.

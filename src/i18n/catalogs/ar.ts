@@ -255,6 +255,16 @@ export const ar: Catalog = {
   'onb.continue': 'متابعة',
   'onb.dateTitle': 'متى بدأت المحافظة على الصلاة؟',
 
+  'onb.prefsTitle': 'أهلًا بك',
+  'onb.prefsIntro': 'اختر كيف يعمل {app} لأجلك. يمكنك تغيير كل هذا لاحقًا من الإعدادات.',
+  'onb.reminderTitle': 'تذكير يومي',
+  'onb.reminderText': 'تنبيه لطيف لتسجيل ما قضيته من الصلوات.',
+  'onb.reminderTime': 'وقت التذكير',
+  'onb.goalTitle': 'الهدف اليومي',
+  'onb.goalText': 'كم صلاة تقضيها كل يوم. القيمة 0 تعني بلا هدف.',
+  'onb.next': 'التالي',
+  'onb.back': 'رجوع',
+
   'notif.channel': 'التذكيرات اليومية',
   'notif.title': 'خطوة صغيرة',
   'notif.body': 'سجّل ما قضيته اليوم من الصلوات.',

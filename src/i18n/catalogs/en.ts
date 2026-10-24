@@ -221,6 +221,16 @@ export const en = {
   'onb.continue': 'Continue',
   'onb.dateTitle': 'When did you start praying regularly?',
 
+  'onb.prefsTitle': 'Welcome',
+  'onb.prefsIntro': 'Choose how {app} works for you. You can change all of this later in Settings.',
+  'onb.reminderTitle': 'Daily reminder',
+  'onb.reminderText': 'A gentle nudge to log what you have made up.',
+  'onb.reminderTime': 'Reminder time',
+  'onb.goalTitle': 'Daily goal',
+  'onb.goalText': 'How many prayers to make up each day. 0 means no goal.',
+  'onb.next': 'Next',
+  'onb.back': 'Back',
+
   'notif.channel': 'Daily reminders',
   'notif.title': 'Time for a small step',
   'notif.body': 'Log a prayer you have made up today.',

@@ -68,6 +68,7 @@ Output: owed count per prayer, shown on a review screen the user can edit before
 - Palette: deep emerald and warm gold on parchment, with a matching night-green dark mode (tokens in `src/components/theme.tsx`).
 - Today screen: animated progress ring, done-today / streak / pace summary, one card per prayer with a one-tap `+1`, a "log several" sheet, "Log a full day", and an undo toast after every log.
 - History grouped by friendly day labels; Progress screen with a 14-day chart and per-prayer bars.
+- First launch starts with a preferences step (language, optional daily reminder and time, daily goal) before the estimate; everything can be changed later in Settings.
 - Onboarding uses a native calendar for the start date and keeps edits in sync with the estimate.
 - Light haptics, accessible labels and roles on every control, 48dp+ touch targets.
 - Optional daily goal shown on Today; milestone feedback when a prayer, the daily goal, or everything is completed.

@@ -220,6 +220,16 @@ export const hi: Catalog = {
   'onb.continue': 'आगे बढ़ें',
   'onb.dateTitle': 'आपने बाक़ायदा नमाज़ कब शुरू की?',
 
+  'onb.prefsTitle': 'ख़ुश आमदीद',
+  'onb.prefsIntro': 'चुनें कि {app} आपके लिए कैसे काम करे। यह सब आप बाद में सेटिंग्स में बदल सकते हैं।',
+  'onb.reminderTitle': 'रोज़ का रिमाइंडर',
+  'onb.reminderText': 'जो क़ज़ा अदा की उसे दर्ज करने की हल्की याद दिहानी।',
+  'onb.reminderTime': 'रिमाइंडर का समय',
+  'onb.goalTitle': 'रोज़ का लक्ष्य',
+  'onb.goalText': 'रोज़ कितनी नमाज़ें क़ज़ा करनी हैं। 0 का मतलब कोई लक्ष्य नहीं।',
+  'onb.next': 'आगे',
+  'onb.back': 'पीछे',
+
   'notif.channel': 'रोज़ के रिमाइंडर',
   'notif.title': 'एक छोटा सा क़दम',
   'notif.body': 'आज जो क़ज़ा नमाज़ अदा की, उसे दर्ज कर लें।',

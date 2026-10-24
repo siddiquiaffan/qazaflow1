@@ -5,13 +5,19 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DateTimeSheet } from '@/components/DateTimeSheet';
+import { chooseLanguage, LanguageOptions } from '@/components/LanguageSheet';
 import { confirmRestore } from '@/components/restoreFlow';
 import { spacing, useTheme } from '@/components/theme';
-import { Button, Card, Field, IconBadge, SectionLabel, Segmented, T } from '@/components/ui';
+import { Button, Card, Field, IconBadge, SectionLabel, IconButton, Segmented, Switch, T } from '@/components/ui';
 import { estimateFromDates, estimateFromYearsMonths, normalizeManual } from '@/domain/estimate';
 import { PRAYERS, totalOf, type Prayer, type PrayerCounts } from '@/domain/prayers';
 import { fetchRemoteSnapshot, signIn } from '@/services/drive';
+import { clampGoal } from '@/domain/goal';
+import { dateToTime, timeToDate } from '@/domain/reminders';
 import { saveInitialDebt } from '@/services/ledger';
+import { ensurePermission } from '@/services/notifications';
+import { addReminder, syncReminders } from '@/services/reminders';
+import { getDailyGoal, setDailyGoal } from '@/services/settings';
 import { isRtl, toAsciiDigits, useT, type Key } from '@/i18n';
 import { useLedger } from '@/store';
 
@@ -51,11 +57,16 @@ function fiveYearsAgo(): Date {
 
 export default function Onboarding() {
   const t = useTheme();
-  const { t: tx, n, digits, prayer: pname, date, lang } = useT();
+  const { t: tx, n, digits, prayer: pname, date, clock, lang } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const refresh = useLedger((s) => s.refresh);
 
+  const [step, setStep] = useState<'prefs' | 'estimate'>('prefs');
+  const [remind, setRemind] = useState(true);
+  const [remindAt, setRemindAt] = useState(() => timeToDate(20, 0));
+  const [pickingTime, setPickingTime] = useState(false);
+  const [goal, setGoal] = useState(() => String(getDailyGoal()));
   const [method, setMethod] = useState<Method>('dates');
   const [startDate, setStartDate] = useState<Date>(fiveYearsAgo);
   const [showDate, setShowDate] = useState(false);
@@ -107,11 +118,108 @@ export default function Onboarding() {
     }
   };
 
-  const save = () => {
+  const save = async () => {
     saveInitialDebt(final);
+    setDailyGoal(clampGoal(Number(goal) || 0));
+    if (remind) {
+      const { hour, minute } = dateToTime(remindAt);
+      addReminder(hour, minute);
+      await ensurePermission().catch(() => false);
+      await syncReminders().catch(() => false);
+    }
     refresh();
     router.replace('/');
   };
+
+  if (step === 'prefs') {
+    return (
+      <View style={{ flex: 1, backgroundColor: t.bg }}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: insets.top + spacing.lg,
+            paddingBottom: spacing.xl,
+            gap: spacing.md,
+          }}
+        >
+          <View style={{ gap: 12 }}>
+            <IconBadge name="leaf-outline" size={56} />
+            <T variant="title">{tx('onb.prefsTitle')}</T>
+            <T color="muted">{tx('onb.prefsIntro', { app: tx('app.name') })}</T>
+          </View>
+
+          <SectionLabel>{tx('settings.language')}</SectionLabel>
+          <Card style={{ paddingVertical: 4 }}>
+            <LanguageOptions onPick={chooseLanguage} />
+          </Card>
+
+          <SectionLabel>{tx('onb.reminderTitle')}</SectionLabel>
+          <Card style={{ gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <T variant="subheading">{tx('onb.reminderTitle')}</T>
+                <T variant="caption" color="muted">
+                  {tx('onb.reminderText')}
+                </T>
+              </View>
+              <Switch label={tx('onb.reminderTitle')} value={remind} onValueChange={setRemind} />
+            </View>
+            {remind ? (
+              <Button
+                label={`${tx('onb.reminderTime')} · ${clock(remindAt.getHours(), remindAt.getMinutes())}`}
+                icon="alarm-outline"
+                variant="tonal"
+                onPress={() => setPickingTime(true)}
+              />
+            ) : null}
+          </Card>
+
+          <SectionLabel>{tx('onb.goalTitle')}</SectionLabel>
+          <Card style={{ gap: 8 }}>
+            <T variant="caption" color="muted">
+              {tx('onb.goalText')}
+            </T>
+            <View style={{ flexDirection: 'row' }}>
+              <Field
+                label={tx('onb.goalTitle')}
+                value={digits(goal)}
+                onChangeText={(v) => setGoal(clean(v).slice(0, 3))}
+                keyboardType="number-pad"
+                placeholder="0"
+              />
+            </View>
+          </Card>
+        </ScrollView>
+
+        <View
+          style={{
+            paddingHorizontal: 20,
+            paddingTop: 12,
+            paddingBottom: insets.bottom + 12,
+            backgroundColor: t.surface,
+            borderTopWidth: 1,
+            borderTopColor: t.border,
+          }}
+        >
+          <Button label={tx('onb.next')} icon={isRtl(lang) ? 'arrow-back' : 'arrow-forward'} onPress={() => setStep('estimate')} />
+        </View>
+
+        <DateTimeSheet
+          visible={pickingTime}
+          mode="time"
+          title={tx('reminders.newTitle')}
+          value={remindAt}
+          onCancel={() => setPickingTime(false)}
+          onConfirm={(d) => {
+            setRemindAt(d);
+            setPickingTime(false);
+          }}
+        />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -126,7 +234,15 @@ export default function Onboarding() {
         }}
       >
         <View style={{ gap: 12 }}>
-          <IconBadge name="leaf-outline" size={56} />
+          <View style={{ flexDirection: 'row' }}>
+            <IconButton
+              icon={isRtl(lang) ? 'arrow-forward' : 'arrow-back'}
+              label={tx('onb.back')}
+              variant="ghost"
+              size={40}
+              onPress={() => setStep('prefs')}
+            />
+          </View>
           <T variant="title">{tx('onb.title')}</T>
           <T color="muted">{tx('onb.intro')}</T>
         </View>

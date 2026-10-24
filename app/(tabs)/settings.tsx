@@ -1,12 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { reloadAppAsync } from 'expo';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Linking, Pressable, Share, View } from 'react-native';
 
 import { DateTimeSheet } from '@/components/DateTimeSheet';
-import { LanguageSheet } from '@/components/LanguageSheet';
+import { chooseLanguage, LanguageSheet } from '@/components/LanguageSheet';
 import { NumberPrompt } from '@/components/NumberPrompt';
 import { confirmRestore } from '@/components/restoreFlow';
 import { PRAYER_ICONS } from '@/components/prayerMeta';
@@ -39,7 +38,7 @@ import {
   type Reminder,
 } from '@/services/reminders';
 import { getBool, getDailyGoal, getNumber, setBool, setDailyGoal, SETTING_KEYS } from '@/services/settings';
-import { NATIVE_NAMES, tr, useI18n, useT, type Pref } from '@/i18n';
+import { NATIVE_NAMES, useI18n, useT, type Pref } from '@/i18n';
 import { useLedger } from '@/store';
 
 type PickerTarget = { kind: 'add' } | { kind: 'edit'; reminder: Reminder };
@@ -49,7 +48,6 @@ export default function SettingsScreen() {
   const { t: tx, clock, dateTime, lang } = useT();
   const appName = tx('app.name');
   const pref = useI18n((s) => s.pref);
-  const setPref = useI18n((s) => s.setPref);
   const [pickingLanguage, setPickingLanguage] = useState(false);
   const fmt = (ts: number) => dateTime(new Date(ts), { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
   const timeText = (hour: number, minute: number) => clock(hour, minute);
@@ -120,14 +118,7 @@ export default function SettingsScreen() {
 
   const pickLanguage = (next: Pref) => {
     setPickingLanguage(false);
-    const needsRestart = setPref(next);
-    if (!needsRestart) return;
-    // Layout direction is fixed when the app starts, so switching between left-to-right and
-    // right-to-left languages needs a restart. Words come from the new language already.
-    const { t: after } = tr();
-    Alert.alert(after('lang.restartTitle'), after('lang.restartText', { app: after('app.name') }), [
-      { text: after('lang.restart'), onPress: () => reloadAppAsync('language change') },
-    ]);
+    chooseLanguage(next);
   };
 
   /* ───────── Backup ───────── */

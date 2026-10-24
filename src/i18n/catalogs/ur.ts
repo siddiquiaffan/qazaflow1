@@ -220,6 +220,16 @@ export const ur: Catalog = {
   'onb.continue': 'آگے بڑھیں',
   'onb.dateTitle': 'آپ نے باقاعدہ نماز کب شروع کی؟',
 
+  'onb.prefsTitle': 'خوش آمدید',
+  'onb.prefsIntro': 'منتخب کریں کہ {app} آپ کے لیے کیسے کام کرے۔ یہ سب آپ بعد میں ترتیبات میں بدل سکتے ہیں۔',
+  'onb.reminderTitle': 'روزانہ کی یاد دہانی',
+  'onb.reminderText': 'جو قضا ادا کی اسے درج کرنے کی ہلکی سی یاد دہانی۔',
+  'onb.reminderTime': 'یاد دہانی کا وقت',
+  'onb.goalTitle': 'روزانہ کا ہدف',
+  'onb.goalText': 'روزانہ کتنی نمازیں قضا کرنی ہیں۔ 0 کا مطلب کوئی ہدف نہیں۔',
+  'onb.next': 'آگے',
+  'onb.back': 'پیچھے',
+
   'notif.channel': 'روزانہ کی یاد دہانیاں',
   'notif.title': 'ایک چھوٹا سا قدم',
   'notif.body': 'آج جو قضا نماز ادا کی اسے درج کر لیں۔',

@@ -2,21 +2,31 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Alert, SectionList, View } from 'react-native';
 
+import { DateTimeSheet } from '@/components/DateTimeSheet';
+import { NumberPrompt } from '@/components/NumberPrompt';
+
 import { PRAYER_ICONS } from '@/components/prayerMeta';
 import { ScreenHeader } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { useTheme } from '@/components/theme';
-import { EmptyState, Group, IconBadge, IconButton, T } from '@/components/ui';
+import { Button, EmptyState, Group, IconBadge, IconButton, T } from '@/components/ui';
 import { dateFromKey, friendlyDay, pluralize } from '@/domain/format';
-import { groupEntries, type HistoryItem } from '@/domain/history';
+import { groupEntries, withDate, withTime, type EditProblem, type HistoryItem } from '@/domain/history';
 import { isPrayer, PRAYER_LABELS, PRAYERS } from '@/domain/prayers';
 import { dayKey } from '@/domain/stats';
-import { deleteCompletions, listCompletions } from '@/services/ledger';
+import { deleteCompletions, listCompletions, updateCompletion } from '@/services/ledger';
 import { useLedger } from '@/store';
 
 type Row = ReturnType<typeof listCompletions>[number];
 
 const PAGE = 300;
+
+const EDIT_MESSAGES: Record<EditProblem | 'missing', string> = {
+  'invalid-count': 'Enter at least 1.',
+  'too-many': 'That is more than you have left to make up for this prayer.',
+  future: 'An entry cannot be in the future.',
+  missing: 'That entry no longer exists.',
+};
 
 const nameOf = (prayer: string) => (isPrayer(prayer) ? PRAYER_LABELS[prayer] : prayer);
 const timeOf = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -27,6 +37,7 @@ function EntryRow({
   subtitle,
   deleteLabel,
   last,
+  onEdit,
   onDelete,
 }: {
   leading: React.ReactNode;
@@ -34,6 +45,7 @@ function EntryRow({
   subtitle: string;
   deleteLabel: string;
   last: boolean;
+  onEdit?: () => void;
   onDelete: () => void;
 }) {
   const t = useTheme();
@@ -56,6 +68,7 @@ function EntryRow({
           {subtitle}
         </T>
       </View>
+      {onEdit ? <IconButton icon="create-outline" label={`Edit ${title}`} size={40} onPress={onEdit} /> : null}
       <IconButton icon="trash-outline" label={deleteLabel} variant="danger" size={40} onPress={onDelete} />
     </View>
   );
@@ -63,9 +76,11 @@ function EntryRow({
 
 export default function HistoryScreen() {
   const t = useTheme();
-  const { version, refresh } = useLedger();
+  const { version, refresh, summary } = useLedger();
   const showToast = useToast((s) => s.show);
   const [limit, setLimit] = useState(PAGE);
+  const [editing, setEditing] = useState<{ row: Row; at: number } | null>(null);
+  const [picking, setPicking] = useState<'date' | 'time' | null>(null);
 
   const { sections, mayHaveMore } = useMemo(() => {
     const rows = listCompletions(limit);
@@ -100,6 +115,18 @@ export default function HistoryScreen() {
         },
       },
     ]);
+
+  const saveEdit = (count: number) => {
+    if (!editing) return;
+    const result = updateCompletion(editing.row.id, { count, completedAt: editing.at });
+    if (!result.ok) {
+      Alert.alert('Could not save', EDIT_MESSAGES[result.reason]);
+      return;
+    }
+    setEditing(null);
+    refresh();
+    showToast('Entry updated');
+  };
 
   const renderItem = (item: HistoryItem<Row>, last: boolean) => {
     if (item.kind === 'batch') {
@@ -146,6 +173,7 @@ export default function HistoryScreen() {
         subtitle={timeOf(row.completedAt)}
         deleteLabel={`Remove ${nameOf(row.prayer)} entry`}
         last={last}
+        onEdit={() => setEditing({ row, at: row.completedAt })}
         onDelete={() => confirmDelete(`${nameOf(row.prayer)}${row.count > 1 ? ` × ${row.count}` : ''}`, [row.id])}
       />
     );
@@ -193,6 +221,58 @@ export default function HistoryScreen() {
           )}
         />
       )}
+
+      <NumberPrompt
+        visible={editing !== null}
+        hidden={picking !== null}
+        title={editing ? `Edit ${nameOf(editing.row.prayer)}` : ''}
+        hint="Change how many you made up, and when."
+        initial={editing?.row.count ?? 1}
+        min={1}
+        max={
+          editing && isPrayer(editing.row.prayer)
+            ? editing.row.count + summary.remaining[editing.row.prayer]
+            : editing?.row.count
+        }
+        extra={
+          editing ? (
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button
+                label={new Date(editing.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                icon="calendar-outline"
+                variant="tonal"
+                size="sm"
+                style={{ flex: 1 }}
+                onPress={() => setPicking('date')}
+              />
+              <Button
+                label={timeOf(editing.at)}
+                icon="time-outline"
+                variant="tonal"
+                size="sm"
+                style={{ flex: 1 }}
+                onPress={() => setPicking('time')}
+              />
+            </View>
+          ) : null
+        }
+        onCancel={() => setEditing(null)}
+        onConfirm={saveEdit}
+      />
+
+      <DateTimeSheet
+        visible={picking !== null && editing !== null}
+        mode={picking ?? 'date'}
+        title={picking === 'time' ? 'Time' : 'Date'}
+        value={new Date(editing?.at ?? Date.now())}
+        maximumDate={new Date()}
+        onCancel={() => setPicking(null)}
+        onConfirm={(d) => {
+          const kind = picking;
+          setEditing((e) => (e ? { ...e, at: kind === 'time' ? withTime(e.at, d) : withDate(e.at, d) } : e));
+          setPicking(null);
+        }}
+      />
     </View>
   );
 }

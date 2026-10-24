@@ -7,20 +7,25 @@ import { Button, Field, IconButton, T } from './ui';
 /** Dialog for entering a whole number, with quick -/+ steppers. */
 export function NumberPrompt({
   visible,
+  hidden = false,
   title,
   hint,
   initial,
   confirmLabel = 'Save',
+  min = 0,
   max,
   extra,
   onCancel,
   onConfirm,
 }: {
   visible: boolean;
+  /** Hide the dialog without resetting what was typed (e.g. while a picker is open on top). */
+  hidden?: boolean;
   title: string;
   hint?: string;
   initial: number;
   confirmLabel?: string;
+  min?: number;
   max?: number;
   /** Optional controls shown under the number field (e.g. a day selector). */
   extra?: ReactNode;
@@ -35,15 +40,15 @@ export function NumberPrompt({
   }, [visible, initial]);
 
   const parsed = Math.floor(Number(text));
-  const valid = text.trim() !== '' && Number.isFinite(parsed) && parsed >= 0 && (max === undefined || parsed <= max);
+  const valid = text.trim() !== '' && Number.isFinite(parsed) && parsed >= min && (max === undefined || parsed <= max);
   const step = (delta: number) => {
     const base = Number.isFinite(parsed) ? parsed : 0;
-    const next = Math.max(0, max === undefined ? base + delta : Math.min(max, base + delta));
+    const next = Math.max(min, max === undefined ? base + delta : Math.min(max, base + delta));
     setText(String(next));
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+    <Modal visible={visible && !hidden} transparent animationType="fade" onRequestClose={onCancel}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={[styles.backdrop, { backgroundColor: t.overlay }]} onPress={onCancel}>
           <Pressable style={[styles.sheet, { backgroundColor: t.surface }]} onPress={() => {}}>
@@ -56,7 +61,7 @@ export function NumberPrompt({
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm }}>
               <IconButton icon="remove" label="Decrease" onPress={() => step(-1)} size={52} />
               <Field
-                label={max === undefined ? 'Number' : `Number (up to ${max.toLocaleString()})`}
+                label={max === undefined ? 'Number' : `Number (${min} to ${max.toLocaleString()})`}
                 value={text}
                 onChangeText={(v) => setText(v.replace(/[^0-9]/g, ''))}
                 keyboardType="number-pad"

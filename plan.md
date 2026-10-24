@@ -76,6 +76,8 @@ Output: owed count per prayer, shown on a review screen the user can edit before
 - New phone: onboarding offers "Restore backup" from Google Drive before asking for any numbers.
 - A dismissible nudge suggests setting up backup once there is real progress to protect.
 - The number dialog sits near the top of the screen so the keyboard never covers its buttons.
+- Single History entries can be edited (count, date, time); counts are capped by what is still owed and entries cannot be dated in the future. Full-day rows are delete-only.
+- Settings → Export history shares the full log as CSV (date, time, prayer, count).
 
 ## Backup and restore
 
@@ -109,6 +111,7 @@ src/components/      shared UI
 3. Home, logging, undo, history ✅
 4. Stats, multiple reminders, redesign, app icon ✅
    - UX pass: goal, milestones, backdated logging, grouped history, restore on onboarding ✅
+   - Edit past entries, CSV export ✅
 5. Localisation (Urdu, Hindi, Arabic)
 6. Store listing and assets
 

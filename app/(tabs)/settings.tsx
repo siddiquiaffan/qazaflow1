@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Linking, Pressable, View } from 'react-native';
+import { Alert, Linking, Pressable, Share, View } from 'react-native';
 
 import { DateTimeSheet } from '@/components/DateTimeSheet';
 import { NumberPrompt } from '@/components/NumberPrompt';
@@ -12,6 +12,7 @@ import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { useTheme } from '@/components/theme';
 import { Button, Card, Group, IconBadge, IconButton, ListRow, SectionLabel, Switch, T } from '@/components/ui';
+import { completionsToCsv } from '@/domain/export';
 import { clampGoal } from '@/domain/goal';
 import { PRAYER_LABELS, PRAYERS, type Prayer } from '@/domain/prayers';
 import { dateToTime, formatTime, summarizeReminders, timeToDate } from '@/domain/reminders';
@@ -24,7 +25,7 @@ import {
   signIn,
   signOut,
 } from '@/services/drive';
-import { resetAll, setOwedTo } from '@/services/ledger';
+import { listAllCompletions, resetAll, setOwedTo } from '@/services/ledger';
 import { ensurePermission } from '@/services/notifications';
 import {
   addReminder,
@@ -138,6 +139,20 @@ export default function SettingsScreen() {
         showToast('Backup restored');
       });
     });
+
+  /** Share the whole history as CSV text (opens the system share sheet). */
+  const exportCsv = async () => {
+    const rows = listAllCompletions();
+    if (rows.length === 0) {
+      Alert.alert('Nothing to export yet', 'Log a prayer first, then you can export your history.');
+      return;
+    }
+    try {
+      await Share.share({ title: 'QazaFlow history', message: completionsToCsv(rows) });
+    } catch {
+      Alert.alert('Export', 'Could not open the share sheet.');
+    }
+  };
 
   const version = Constants.expoConfig?.version ?? '';
 
@@ -326,6 +341,12 @@ export default function SettingsScreen() {
       {/* Data */}
       <SectionLabel>Data</SectionLabel>
       <Group>
+        <ListRow
+          icon="download-outline"
+          title="Export history"
+          subtitle="Share your log as a CSV you can keep or open in a spreadsheet"
+          onPress={exportCsv}
+        />
         <ListRow
           icon="refresh-outline"
           title="Start over"

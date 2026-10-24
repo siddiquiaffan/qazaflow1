@@ -1,5 +1,6 @@
+import { completionsToCsv, csvField } from '../export';
 import { clampGoal, crossedGoal, goalFraction } from '../goal';
-import { groupEntries, shiftDays } from '../history';
+import { groupEntries, shiftDays, validateEdit, withDate, withTime } from '../history';
 
 const row = (id: number, prayer: string, completedAt: number, count = 1) => ({ id, prayer, count, completedAt });
 
@@ -63,5 +64,64 @@ describe('daily goal', () => {
     expect(goalFraction(3, 6)).toBe(0.5);
     expect(goalFraction(9, 6)).toBe(1);
     expect(goalFraction(3, 0)).toBe(0);
+  });
+});
+
+describe('validateEdit', () => {
+  const base = { currentCount: 3, remaining: 10, newCount: 3, newAt: 1000, now: 2000 };
+
+  it('accepts a normal edit', () => {
+    expect(validateEdit(base)).toBeNull();
+    expect(validateEdit({ ...base, newCount: 13 })).toBeNull(); // 3 now + 10 still owed
+  });
+
+  it('rejects bad counts', () => {
+    expect(validateEdit({ ...base, newCount: 0 })).toBe('invalid-count');
+    expect(validateEdit({ ...base, newCount: 2.5 })).toBe('invalid-count');
+    expect(validateEdit({ ...base, newCount: 14 })).toBe('too-many');
+  });
+
+  it('allows shrinking even when nothing remains', () => {
+    expect(validateEdit({ ...base, remaining: 0, newCount: 2 })).toBeNull();
+    expect(validateEdit({ ...base, remaining: 0, newCount: 4 })).toBe('too-many');
+  });
+
+  it('rejects the future', () => {
+    expect(validateEdit({ ...base, newAt: 3000 })).toBe('future');
+  });
+});
+
+describe('withDate / withTime', () => {
+  it('changes only the requested part', () => {
+    const ts = new Date(2026, 9, 24, 18, 45, 30).getTime();
+    const d = new Date(withDate(ts, new Date(2026, 8, 3)));
+    expect([d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()]).toEqual([8, 3, 18, 45]);
+    const t = new Date(withTime(ts, new Date(2000, 0, 1, 6, 5)));
+    expect([t.getMonth(), t.getDate(), t.getHours(), t.getMinutes()]).toEqual([9, 24, 6, 5]);
+  });
+});
+
+describe('csv export', () => {
+  it('escapes only when needed', () => {
+    expect(csvField('Fajr')).toBe('Fajr');
+    expect(csvField('a,b')).toBe('"a,b"');
+    expect(csvField('say "hi"')).toBe('"say ""hi"""');
+  });
+
+  it('writes a header and oldest-first rows with labels', () => {
+    const a = new Date(2026, 9, 24, 7, 5).getTime();
+    const b = new Date(2026, 9, 23, 21, 30).getTime();
+    const csv = completionsToCsv([
+      { prayer: 'fajr', count: 2, completedAt: a },
+      { prayer: 'isha', count: 1, completedAt: b },
+      { prayer: 'mystery', count: 1, completedAt: a + 1 },
+    ]);
+    expect(csv.split('\n')).toEqual([
+      'date,time,prayer,count',
+      '2026-10-23,21:30,Isha,1',
+      '2026-10-24,07:05,Fajr,2',
+      '2026-10-24,07:05,mystery,1',
+      '',
+    ]);
   });
 });

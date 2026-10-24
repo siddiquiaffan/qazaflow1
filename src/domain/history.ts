@@ -42,3 +42,37 @@ export function shiftDays(ts: number, days: number): number {
   d.setDate(d.getDate() - days);
   return d.getTime();
 }
+
+export type EditProblem = 'invalid-count' | 'too-many' | 'future';
+
+/**
+ * Check an edit to a logged entry. `remaining` is what is still owed for that prayer *now*,
+ * so the entry may grow by at most that much beyond its current count.
+ */
+export function validateEdit(input: {
+  currentCount: number;
+  remaining: number;
+  newCount: number;
+  newAt: number;
+  now: number;
+}): EditProblem | null {
+  const { currentCount, remaining, newCount, newAt, now } = input;
+  if (!Number.isInteger(newCount) || newCount < 1) return 'invalid-count';
+  if (newCount > currentCount + Math.max(0, remaining)) return 'too-many';
+  if (newAt > now) return 'future';
+  return null;
+}
+
+/** Replace the date part of `ts` with the date of `day`, keeping the time of day. */
+export function withDate(ts: number, day: Date): number {
+  const d = new Date(ts);
+  d.setFullYear(day.getFullYear(), day.getMonth(), day.getDate());
+  return d.getTime();
+}
+
+/** Replace the time of day of `ts` with the time of `clock`, keeping the date. */
+export function withTime(ts: number, clock: Date): number {
+  const d = new Date(ts);
+  d.setHours(clock.getHours(), clock.getMinutes(), 0, 0);
+  return d.getTime();
+}

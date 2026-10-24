@@ -1,7 +1,8 @@
 import { desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { db, schema } from '@/db/client';
-import { emptyCounts, PRAYERS, type Prayer, type PrayerCounts } from '@/domain/prayers';
+import { emptyCounts, isPrayer, PRAYERS, type Prayer, type PrayerCounts } from '@/domain/prayers';
+import { validateEdit, type EditProblem } from '@/domain/history';
 import { remainingFor, sumByPrayer, totalOwed, type LedgerInput } from '@/domain/stats';
 
 import { SETTING_KEYS, setBool, touchLocalChange } from './settings';
@@ -134,3 +135,31 @@ export function completionTimestamps(): { completedAt: number; count: number }[]
 }
 
 export { emptyCounts };
+
+export type UpdateResult = { ok: true } | { ok: false; reason: EditProblem | 'missing' };
+
+/** Change an entry's count and/or time. Counts are checked against what is still owed. */
+export function updateCompletion(id: number, patch: { count: number; completedAt: number }): UpdateResult {
+  const row = db.select().from(schema.completions).where(eq(schema.completions.id, id)).get();
+  if (!row) return { ok: false, reason: 'missing' };
+  const remaining = isPrayer(row.prayer) ? loadSummary().remaining[row.prayer] : 0;
+  const problem = validateEdit({
+    currentCount: row.count,
+    remaining,
+    newCount: patch.count,
+    newAt: patch.completedAt,
+    now: Date.now(),
+  });
+  if (problem) return { ok: false, reason: problem };
+  db.update(schema.completions)
+    .set({ count: patch.count, completedAt: patch.completedAt })
+    .where(eq(schema.completions.id, id))
+    .run();
+  touchLocalChange();
+  return { ok: true };
+}
+
+/** Every completion, for export. */
+export function listAllCompletions() {
+  return db.select().from(schema.completions).all();
+}

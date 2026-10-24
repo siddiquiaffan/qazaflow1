@@ -6,7 +6,8 @@ import { PRAYER_ICONS } from '@/components/prayerMeta';
 import { Screen } from '@/components/Screen';
 import { useTheme } from '@/components/theme';
 import { Card, IconBadge, ProgressBar, SectionLabel, T, type IconName } from '@/components/ui';
-import { PRAYER_LABELS, PRAYERS } from '@/domain/prayers';
+import { PRAYERS } from '@/domain/prayers';
+import { useT } from '@/i18n';
 import {
   averagePerDay,
   currentStreak,
@@ -43,6 +44,7 @@ const CHART_HEIGHT = 110;
 
 export default function StatsScreen() {
   const t = useTheme();
+  const { t: tx, n, prayer: pname, prayers, date } = useT();
   const { summary, version } = useLedger();
 
   const stats = useMemo(() => {
@@ -63,28 +65,28 @@ export default function StatsScreen() {
   const completed = summary.totalOwed - summary.totalRemaining;
   const finishText =
     summary.totalRemaining === 0
-      ? 'Done'
+      ? tx('stats.finishDone')
       : stats.finish
-        ? stats.finish.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+        ? date(stats.finish, { month: 'short', year: 'numeric' })
         : '—';
 
   return (
-    <Screen title="Progress" subtitle="Your pace and what is left">
+    <Screen title={tx('stats.title')} subtitle={tx('stats.subtitle')}>
       <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Tile icon="flame-outline" label="Day streak" value={String(stats.streak)} />
-        <Tile icon="checkmark-done-outline" label="Completed" value={completed.toLocaleString()} />
+        <Tile icon="flame-outline" label={tx('stats.streak')} value={n(stats.streak)} />
+        <Tile icon="checkmark-done-outline" label={tx('stats.completed')} value={n(completed)} />
       </View>
       <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Tile icon="speedometer-outline" label="Per day this week" value={stats.pace7.toFixed(1)} />
+        <Tile icon="speedometer-outline" label={tx('stats.perWeek')} value={n(stats.pace7, 1)} />
         <Tile
           icon="calendar-outline"
-          label="Projected finish"
+          label={tx('stats.finish')}
           value={finishText}
-          note={stats.finish || summary.totalRemaining === 0 ? undefined : 'Log some to see'}
+          note={stats.finish || summary.totalRemaining === 0 ? undefined : tx('stats.logSome')}
         />
       </View>
 
-      <SectionLabel>Last 14 days</SectionLabel>
+      <SectionLabel>{tx('stats.last14')}</SectionLabel>
       <Card style={{ gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: CHART_HEIGHT, gap: 6 }}>
           {stats.days.map((d, i) => {
@@ -94,7 +96,7 @@ export default function StatsScreen() {
               <View
                 key={d.key}
                 accessible
-                accessibilityLabel={`${d.date.toLocaleDateString(undefined, { weekday: 'long' })}: ${d.count} prayers`}
+                accessibilityLabel={tx('stats.dayA11y', { day: date(d.date, { weekday: 'long' }), prayers: prayers(d.count) })}
                 style={{
                   flex: 1,
                   height: h,
@@ -109,18 +111,18 @@ export default function StatsScreen() {
         <View style={{ flexDirection: 'row', gap: 6 }}>
           {stats.days.map((d) => (
             <T key={d.key} variant="caption" color="muted" style={{ flex: 1, textAlign: 'center', fontSize: 11 }}>
-              {d.date.toLocaleDateString(undefined, { weekday: 'narrow' })}
+              {date(d.date, { weekday: 'narrow' })}
             </T>
           ))}
         </View>
         <T variant="caption" color="muted">
           {peak > 1 || stats.days.some((d) => d.count > 0)
-            ? `Busiest day: ${peak} prayers`
-            : 'Your daily totals will show up here.'}
+            ? tx('stats.busiest', { prayers: prayers(peak) })
+            : tx('stats.empty')}
         </T>
       </Card>
 
-      <SectionLabel>By prayer</SectionLabel>
+      <SectionLabel>{tx('stats.byPrayer')}</SectionLabel>
       <Card style={{ gap: 18 }}>
         {PRAYERS.map((p) => {
           const owed = Math.max(0, summary.owed[p] + summary.adjustments[p]);
@@ -129,13 +131,13 @@ export default function StatsScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <MaterialCommunityIcons name={PRAYER_ICONS[p]} size={20} color={t.primary} />
                 <T variant="subheading" style={{ flex: 1 }}>
-                  {PRAYER_LABELS[p]}
+                  {pname(p)}
                 </T>
                 {summary.remaining[p] === 0 && owed > 0 ? (
                   <Ionicons name="checkmark-circle" size={18} color={t.success} />
                 ) : null}
                 <T variant="caption" color="muted">
-                  {summary.remaining[p].toLocaleString()} left of {owed.toLocaleString()}
+                  {tx('stats.leftOf', { left: summary.remaining[p], owed })}
                 </T>
               </View>
               <ProgressBar fraction={progressFraction(summary.remaining[p], owed)} height={8} />

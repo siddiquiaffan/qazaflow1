@@ -2,6 +2,8 @@ import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/d
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import { useT } from '@/i18n';
+
 import { radius, spacing, useTheme } from './theme';
 import { Button, T } from './ui';
 
@@ -27,6 +29,7 @@ export function DateTimeSheet({
   onConfirm: (d: Date) => void;
 }) {
   const t = useTheme();
+  const { t: tx } = useT();
   const [draft, setDraft] = useState(value);
 
   // Keep the latest callbacks without re-opening the Android dialog when they change.
@@ -71,8 +74,8 @@ export function DateTimeSheet({
             themeVariant={t.bg === '#0B1512' ? 'dark' : 'light'}
           />
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <Button label="Cancel" variant="tonal" onPress={onCancel} style={{ flex: 1 }} />
-            <Button label="Done" onPress={() => onConfirm(draft)} style={{ flex: 1 }} />
+            <Button label={tx('common.cancel')} variant="tonal" onPress={onCancel} style={{ flex: 1 }} />
+            <Button label={tx('common.done')} onPress={() => onConfirm(draft)} style={{ flex: 1 }} />
           </View>
         </Pressable>
       </Pressable>

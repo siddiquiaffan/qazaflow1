@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { tr } from '@/i18n';
+
 export const REMINDER_CHANNEL_ID = 'daily-reminder';
 
 Notifications.setNotificationHandler({
@@ -19,7 +21,7 @@ export async function hasPermission(): Promise<boolean> {
 export async function ensureChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
-    name: 'Daily reminders',
+    name: tr().t('notif.channel'),
     importance: Notifications.AndroidImportance.DEFAULT,
   });
 }
@@ -39,8 +41,8 @@ export async function scheduleDaily(id: number, hour: number, minute: number): P
   await Notifications.scheduleNotificationAsync({
     identifier: `reminder-${id}`,
     content: {
-      title: 'Time for a small step',
-      body: 'Log a prayer you have made up today.',
+      title: tr().t('notif.title'),
+      body: tr().t('notif.body'),
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,

@@ -11,6 +11,7 @@ export const SETTING_KEYS = {
   lastBackupAt: 'last_backup_at',
   lastBackupEmail: 'last_backup_email',
   lastLocalChangeAt: 'last_local_change_at',
+  language: 'language',
 } as const;
 
 export type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS];

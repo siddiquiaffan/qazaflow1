@@ -42,3 +42,7 @@ Without secrets, APKs are signed with the debug key (fine for sideloading). To s
 - `ANDROID_KEYSTORE_PASSWORD`
 - `ANDROID_KEY_ALIAS`
 - `ANDROID_KEY_PASSWORD` (optional; defaults to the keystore password)
+
+## Languages
+
+English, Hindi, Urdu and Arabic. Strings are in `src/i18n/catalogs/`; add a key to `en.ts` first and the other catalogs (and tests) will tell you what is missing. Regenerate the translator review sheet with `node --experimental-strip-types scripts/export-translations.mts`.

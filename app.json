@@ -24,6 +24,26 @@
     "plugins": [
       "expo-router",
       [
+        "expo-localization",
+        {
+          "supportsRTL": true,
+          "supportedLocales": {
+            "ios": [
+              "en",
+              "hi",
+              "ur",
+              "ar"
+            ],
+            "android": [
+              "en",
+              "hi",
+              "ur",
+              "ar"
+            ]
+          }
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
@@ -53,6 +73,11 @@
           }
         }
       ]
-    ]
+    ],
+    "locales": {
+      "hi": "./locales/hi.json",
+      "ur": "./locales/ur.json",
+      "ar": "./locales/ar.json"
+    }
   }
 }

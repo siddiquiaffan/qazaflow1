@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import { toAsciiDigits, useT } from '@/i18n';
+
 import { radius, spacing, useTheme } from './theme';
 import { Button, Field, IconButton, T } from './ui';
 
@@ -11,7 +13,7 @@ export function NumberPrompt({
   title,
   hint,
   initial,
-  confirmLabel = 'Save',
+  confirmLabel,
   min = 0,
   max,
   extra,
@@ -33,6 +35,7 @@ export function NumberPrompt({
   onConfirm: (value: number) => void;
 }) {
   const t = useTheme();
+  const { t: tx, digits } = useT();
   const [text, setText] = useState(String(initial));
 
   useEffect(() => {
@@ -59,22 +62,22 @@ export function NumberPrompt({
               </T>
             ) : null}
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm }}>
-              <IconButton icon="remove" label="Decrease" onPress={() => step(-1)} size={52} />
+              <IconButton icon="remove" label={tx('np.decrease')} onPress={() => step(-1)} size={52} />
               <Field
-                label={max === undefined ? 'Number' : `Number (${min} to ${max.toLocaleString()})`}
-                value={text}
-                onChangeText={(v) => setText(v.replace(/[^0-9]/g, ''))}
+                label={max === undefined ? tx('np.number') : tx('np.range', { min, max })}
+                value={digits(text)}
+                onChangeText={(v) => setText(toAsciiDigits(v).replace(/[^0-9]/g, ''))}
                 keyboardType="number-pad"
                 autoFocus
                 selectTextOnFocus
                 style={{ textAlign: 'center', fontSize: 22 }}
               />
-              <IconButton icon="add" label="Increase" onPress={() => step(1)} size={52} />
+              <IconButton icon="add" label={tx('np.increase')} onPress={() => step(1)} size={52} />
             </View>
             {extra}
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <Button label="Cancel" variant="tonal" onPress={onCancel} style={{ flex: 1 }} />
-              <Button label={confirmLabel} disabled={!valid} onPress={() => onConfirm(parsed)} style={{ flex: 1 }} />
+              <Button label={tx('common.cancel')} variant="tonal" onPress={onCancel} style={{ flex: 1 }} />
+              <Button label={confirmLabel ?? tx('common.save')} disabled={!valid} onPress={() => onConfirm(parsed)} style={{ flex: 1 }} />
             </View>
           </Pressable>
         </Pressable>

@@ -11,10 +11,10 @@ import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { useTheme } from '@/components/theme';
 import { Button, Card, IconBadge, IconButton, ProgressBar, SectionLabel, Segmented, T } from '@/components/ui';
+import { useT } from '@/i18n';
 import { crossedGoal } from '@/domain/goal';
 import { shiftDays } from '@/domain/history';
-import { pluralize } from '@/domain/format';
-import { PRAYER_LABELS, PRAYERS, type Prayer } from '@/domain/prayers';
+import { PRAYERS, type Prayer } from '@/domain/prayers';
 import { averagePerDay, completedToday, currentStreak, progressFraction } from '@/domain/stats';
 import { getSignedInEmail } from '@/services/drive';
 import { completionTimestamps, logCompletion, logFullDay, undoLast } from '@/services/ledger';
@@ -41,6 +41,7 @@ function HeroStat({ value, label }: { value: string; label: string }) {
 
 export default function HomeScreen() {
   const t = useTheme();
+  const { t: tx, n, prayer: pname, percent, date } = useT();
   const router = useRouter();
   const { summary, version, refresh } = useLedger();
   const showToast = useToast((s) => s.show);
@@ -83,27 +84,32 @@ export default function HomeScreen() {
     const finishedPrayer = summary.remaining[p] - logged === 0;
     const hitGoal = day === 'today' && crossedGoal(today, today + logged, goal);
 
-    let message = `${PRAYER_LABELS[p]}${logged > 1 ? ` × ${logged}` : ''} logged${day === 'yesterday' ? ' for yesterday' : ''}`;
-    if (finishedAll) message = 'All caught up. Well done.';
-    else if (hitGoal) message = 'Daily goal reached';
-    else if (finishedPrayer) message = `${PRAYER_LABELS[p]} complete`;
+    const params = { prayer: pname(p), count: logged };
+    const yesterday = day === 'yesterday';
+    let message =
+      logged > 1
+        ? tx(yesterday ? 'today.loggedManyYesterday' : 'today.loggedMany', params)
+        : tx(yesterday ? 'today.loggedYesterday' : 'today.logged', params);
+    if (finishedAll) message = tx('today.allDoneToast');
+    else if (hitGoal) message = tx('today.goalToast');
+    else if (finishedPrayer) message = tx('today.complete', { prayer: pname(p) });
     if (finishedAll || hitGoal || finishedPrayer) success();
 
     refresh();
-    showToast(message, { label: 'Undo', onPress: undo });
+    showToast(message, { label: tx('common.undo'), onPress: undo });
   };
 
   const logDay = () => {
-    const n = logFullDay();
-    if (n === 0) return;
-    const hitGoal = crossedGoal(today, today + n, goal);
-    if (summary.totalRemaining - n === 0 || hitGoal) success();
+    const count = logFullDay();
+    if (count === 0) return;
+    const hitGoal = crossedGoal(today, today + count, goal);
+    if (summary.totalRemaining - count === 0 || hitGoal) success();
     refresh();
-    showToast(hitGoal ? 'Daily goal reached' : `${pluralize(n, 'prayer')} logged`, {
-      label: 'Undo',
+    showToast(hitGoal ? tx('today.goalToast') : tx('today.fullDayLogged', { count }), {
+      label: tx('common.undo'),
       // A full day writes one entry per prayer, so undo removes that many.
       onPress: () => {
-        for (let i = 0; i < n; i += 1) undoLast();
+        for (let i = 0; i < count; i += 1) undoLast();
         refresh();
       },
     });
@@ -116,8 +122,8 @@ export default function HomeScreen() {
 
   return (
     <Screen
-      title="Today"
-      subtitle={new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
+      title={tx('tab.today')}
+      subtitle={date(new Date(), { weekday: 'long', day: 'numeric', month: 'long' })}
     >
       <Card tone="hero" style={{ alignItems: 'center', paddingVertical: 28, gap: 20 }}>
         <ProgressRing size={216} stroke={18} fraction={fraction} color={t.accent} trackColor={t.heroTrack}>
@@ -125,7 +131,7 @@ export default function HomeScreen() {
             <View style={{ alignItems: 'center', gap: 6 }}>
               <Ionicons name="checkmark-circle" size={56} color={t.accent} />
               <T variant="heading" color="onHero">
-                All caught up
+                {tx('today.allCaughtUp')}
               </T>
             </View>
           ) : (
@@ -133,22 +139,22 @@ export default function HomeScreen() {
               <T
                 variant="display"
                 color="onHero"
-                accessibilityLabel={`${summary.totalRemaining} prayers remaining`}
+                accessibilityLabel={tx('today.remainingA11y', { count: summary.totalRemaining })}
                 adjustsFontSizeToFit
                 numberOfLines={1}
                 style={{ maxWidth: 160 }}
               >
-                {summary.totalRemaining.toLocaleString()}
+                {n(summary.totalRemaining)}
               </T>
               <T variant="caption" color="onHeroMuted">
-                prayers to go
+                {tx('today.toGo')}
               </T>
             </View>
           )}
         </ProgressRing>
 
         <T variant="caption" color="onHeroMuted">
-          {done.toLocaleString()} of {summary.totalOwed.toLocaleString()} complete · {Math.round(fraction * 100)}%
+          {tx('today.progress', { done, total: summary.totalOwed, percent: percent(fraction) })}
         </T>
 
         <View
@@ -161,17 +167,17 @@ export default function HomeScreen() {
           }}
         >
           {goal > 0 ? (
-            <HeroStat value={`${today} / ${goal}`} label={today >= goal ? 'Goal reached' : "Today's goal"} />
+            <HeroStat value={`${n(today)} / ${n(goal)}`} label={today >= goal ? tx('today.goalReached') : tx('today.goalLabel')} />
           ) : (
-            <HeroStat value={String(today)} label="Done today" />
+            <HeroStat value={n(today)} label={tx('today.doneToday')} />
           )}
-          <HeroStat value={`${streak} ${streak === 1 ? 'day' : 'days'}`} label="Streak" />
-          <HeroStat value={pace.toFixed(1)} label="Per day" />
+          <HeroStat value={tx('count.days', { count: streak })} label={tx('today.streak')} />
+          <HeroStat value={n(pace, 1)} label={tx('today.perDay')} />
         </View>
       </Card>
 
       <Button
-        label="Log a full day"
+        label={tx('today.fullDay')}
         icon="checkmark-done"
         variant="tonal"
         disabled={summary.totalRemaining === 0}
@@ -183,18 +189,18 @@ export default function HomeScreen() {
           <IconBadge name="cloud-upload-outline" tone="accent" size={44} />
           <View style={{ flex: 1, gap: 2 }}>
             <T variant="subheading" style={{ color: t.onAccentSoft }}>
-              Protect your progress
+              {tx('today.nudgeTitle')}
             </T>
             <T variant="caption" style={{ color: t.onAccentSoft }}>
-              Back up to Google Drive so a lost phone never costs you your count.
+              {tx('today.nudgeText')}
             </T>
             <View style={{ flexDirection: 'row', marginTop: 8 }}>
-              <Button label="Set up backup" size="sm" onPress={() => router.push('/settings')} />
+              <Button label={tx('today.nudgeAction')} size="sm" onPress={() => router.push('/settings')} />
             </View>
           </View>
           <IconButton
             icon="close"
-            label="Dismiss backup reminder"
+            label={tx('today.nudgeDismiss')}
             variant="ghost"
             size={36}
             onPress={() => {
@@ -205,7 +211,7 @@ export default function HomeScreen() {
         </Card>
       ) : null}
 
-      <SectionLabel>Prayers</SectionLabel>
+      <SectionLabel>{tx('today.prayers')}</SectionLabel>
 
       {PRAYERS.map((p) => {
         const owed = Math.max(0, summary.owed[p] + summary.adjustments[p]);
@@ -226,23 +232,23 @@ export default function HomeScreen() {
                 <MaterialCommunityIcons name={PRAYER_ICONS[p]} size={26} color={t.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <T variant="heading">{PRAYER_LABELS[p]}</T>
+                <T variant="heading">{pname(p)}</T>
                 <T variant="caption" color="muted">
-                  {left === 0 ? 'All made up' : `${left.toLocaleString()} left`}
+                  {left === 0 ? tx('today.allMadeUp') : tx('today.left', { count: left })}
                 </T>
               </View>
               {left === 0 ? (
-                <Ionicons name="checkmark-circle" size={32} color={t.success} accessibilityLabel={`${PRAYER_LABELS[p]} complete`} />
+                <Ionicons name="checkmark-circle" size={32} color={t.success} accessibilityLabel={tx('today.complete', { prayer: pname(p) })} />
               ) : (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <IconButton
                     icon="ellipsis-horizontal"
-                    label={`Log several ${PRAYER_LABELS[p]}`}
+                    label={tx('today.logSeveral', { prayer: pname(p) })}
                     onPress={() => openMulti(p)}
                   />
                   <IconButton
                     icon="add"
-                    label={`Log one ${PRAYER_LABELS[p]}`}
+                    label={tx('today.logOne', { prayer: pname(p) })}
                     variant="primary"
                     size={52}
                     onPress={() => log(p, 1)}
@@ -257,16 +263,16 @@ export default function HomeScreen() {
 
       <NumberPrompt
         visible={multi !== null}
-        title={multi ? `${PRAYER_LABELS[multi]} completed` : ''}
-        hint="How many did you make up? Forgot to log earlier? Choose yesterday."
+        title={multi ? tx('today.multiTitle', { prayer: pname(multi) }) : ''}
+        hint={tx('today.multiHint')}
         initial={1}
         max={multi ? summary.remaining[multi] : undefined}
-        confirmLabel="Log"
+        confirmLabel={tx('today.multiLog')}
         extra={
           <Segmented
             options={[
-              { key: 'today' as const, label: 'Today' },
-              { key: 'yesterday' as const, label: 'Yesterday' },
+              { key: 'today' as const, label: tx('common.today') },
+              { key: 'yesterday' as const, label: tx('common.yesterday') },
             ]}
             value={when}
             onChange={setWhen}

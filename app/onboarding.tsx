@@ -9,24 +9,28 @@ import { confirmRestore } from '@/components/restoreFlow';
 import { spacing, useTheme } from '@/components/theme';
 import { Button, Card, Field, IconBadge, SectionLabel, Segmented, T } from '@/components/ui';
 import { estimateFromDates, estimateFromYearsMonths, normalizeManual } from '@/domain/estimate';
-import { PRAYER_LABELS, PRAYERS, totalOf, type Prayer, type PrayerCounts } from '@/domain/prayers';
+import { PRAYERS, totalOf, type Prayer, type PrayerCounts } from '@/domain/prayers';
 import { fetchRemoteSnapshot, signIn } from '@/services/drive';
 import { saveInitialDebt } from '@/services/ledger';
+import { isRtl, toAsciiDigits, useT, type Key } from '@/i18n';
 import { useLedger } from '@/store';
 
 type Method = 'dates' | 'span' | 'manual';
 
-const METHODS: { key: Method; label: string }[] = [
-  { key: 'dates', label: 'Start date' },
-  { key: 'span', label: 'Years' },
-  { key: 'manual', label: 'Exact counts' },
+const METHODS: { key: Method; label: Key }[] = [
+  { key: 'dates', label: 'onb.method.dates' },
+  { key: 'span', label: 'onb.method.span' },
+  { key: 'manual', label: 'onb.method.manual' },
 ];
 
-const HELP: Record<Method, string> = {
-  dates: 'Pick the day you began praying regularly. Every day since then is counted.',
-  span: 'Roughly how long were you not praying? An estimate is fine.',
-  manual: 'Already know your numbers? Enter them for each prayer.',
+const HELP: Record<Method, Key> = {
+  dates: 'onb.help.dates',
+  span: 'onb.help.span',
+  manual: 'onb.help.manual',
 };
+
+/** What someone typed into a number field, as plain 0-9 digits (Arabic-Indic digits are accepted). */
+const clean = (v: string) => toAsciiDigits(v).replace(/[^0-9]/g, '');
 
 const num = (s: string) => {
   const n = Math.floor(Number(s));
@@ -47,6 +51,7 @@ function fiveYearsAgo(): Date {
 
 export default function Onboarding() {
   const t = useTheme();
+  const { t: tx, n, digits, prayer: pname, date, lang } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const refresh = useLedger((s) => s.refresh);
@@ -88,7 +93,7 @@ export default function Onboarding() {
       await signIn();
       const snap = await fetchRemoteSnapshot();
       if (!snap) {
-        Alert.alert('No backup found', 'There is no QazaFlow backup in this Google account. You can set things up below instead.');
+        Alert.alert(tx('backup.noneTitle'), tx('backup.noneOnboarding', { app: tx('app.name') }));
         return;
       }
       confirmRestore(snap, () => {
@@ -96,7 +101,7 @@ export default function Onboarding() {
         router.replace('/');
       });
     } catch (e) {
-      Alert.alert('Backup', e instanceof Error ? e.message : 'Something went wrong.');
+      Alert.alert(tx('backup.alertTitle'), e instanceof Error ? e.message : tx('common.somethingWrong'));
     } finally {
       setRestoring(false);
     }
@@ -122,72 +127,70 @@ export default function Onboarding() {
       >
         <View style={{ gap: 12 }}>
           <IconBadge name="leaf-outline" size={56} />
-          <T variant="title">Let’s set things up</T>
-          <T color="muted">
-            Tell us roughly how many prayers you have missed. An estimate is fine — you can change it at any time.
-          </T>
+          <T variant="title">{tx('onb.title')}</T>
+          <T color="muted">{tx('onb.intro')}</T>
         </View>
 
         <Card tone="tinted" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <IconBadge name="cloud-download-outline" size={44} />
           <View style={{ flex: 1, gap: 8 }}>
             <View>
-              <T variant="subheading">Already use QazaFlow?</T>
+              <T variant="subheading">{tx('onb.restoreTitle', { app: tx('app.name') })}</T>
               <T variant="caption" color="muted">
-                Bring your progress over from Google Drive.
+                {tx('onb.restoreText')}
               </T>
             </View>
             <View style={{ flexDirection: 'row' }}>
-              <Button label="Restore backup" size="sm" icon="logo-google" loading={restoring} onPress={restoreFromDrive} />
+              <Button label={tx('onb.restoreBtn')} size="sm" icon="logo-google" loading={restoring} onPress={restoreFromDrive} />
             </View>
           </View>
         </Card>
 
-        <SectionLabel>Or start fresh</SectionLabel>
+        <SectionLabel>{tx('onb.fresh')}</SectionLabel>
 
-        <Segmented options={METHODS} value={method} onChange={setMethod} />
+        <Segmented options={METHODS.map((m) => ({ key: m.key, label: tx(m.label) }))} value={method} onChange={setMethod} />
         <T variant="caption" color="muted" style={{ marginTop: -4 }}>
-          {HELP[method]}
+          {tx(HELP[method])}
         </T>
 
         {method === 'dates' && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Start date, ${startDate.toLocaleDateString()}. Tap to change.`}
+            accessibilityLabel={tx('onb.startA11y', { date: date(startDate, { day: 'numeric', month: 'long', year: 'numeric' }) })}
             onPress={() => setShowDate(true)}
           >
             <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
               <IconBadge name="calendar-outline" size={44} />
               <View style={{ flex: 1 }}>
                 <T variant="caption" color="muted">
-                  Started praying regularly
+                  {tx('onb.started')}
                 </T>
                 <T variant="heading">
-                  {startDate.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
+                  {date(startDate, { day: 'numeric', month: 'long', year: 'numeric' })}
                 </T>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={t.muted} />
+              <Ionicons name={isRtl(lang) ? 'chevron-back' : 'chevron-forward'} size={18} color={t.muted} />
             </Card>
           </Pressable>
         )}
 
         {method === 'span' && (
           <Card style={{ flexDirection: 'row', gap: 12 }}>
-            <Field label="Years" value={years} onChangeText={setYears} keyboardType="number-pad" maxLength={2} placeholder="0" />
-            <Field label="Months" value={months} onChangeText={setMonths} keyboardType="number-pad" maxLength={2} placeholder="0" />
+            <Field label={tx('onb.years')} value={digits(years)} onChangeText={(v) => setYears(clean(v))} keyboardType="number-pad" maxLength={2} placeholder="0" />
+            <Field label={tx('onb.months')} value={digits(months)} onChangeText={(v) => setMonths(clean(v))} keyboardType="number-pad" maxLength={2} placeholder="0" />
           </Card>
         )}
 
         {method !== 'manual' ? (
           <Card style={{ gap: 12 }}>
             <View>
-              <T variant="subheading">Days to leave out</T>
+              <T variant="subheading">{tx('onb.excludeTitle')}</T>
               <T variant="caption" color="muted">
-                Days you did pray, or were unable to (optional).
+                {tx('onb.excludeText')}
               </T>
             </View>
             <View style={{ flexDirection: 'row' }}>
-              <Field label="Number of days" value={excluded} onChangeText={setExcluded} keyboardType="number-pad" placeholder="0" />
+              <Field label={tx('onb.numDays')} value={digits(excluded)} onChangeText={(v) => setExcluded(clean(v))} keyboardType="number-pad" placeholder="0" />
             </View>
           </Card>
         ) : (
@@ -197,9 +200,9 @@ export default function Onboarding() {
                 {row.map((p) => (
                   <Field
                     key={p}
-                    label={PRAYER_LABELS[p]}
-                    value={manual[p] ?? ''}
-                    onChangeText={(v) => setManual((m) => ({ ...m, [p]: v.replace(/[^0-9]/g, '') }))}
+                    label={pname(p)}
+                    value={digits(manual[p] ?? '')}
+                    onChangeText={(v) => setManual((m) => ({ ...m, [p]: clean(v) }))}
                     keyboardType="number-pad"
                     placeholder="0"
                   />
@@ -211,22 +214,22 @@ export default function Onboarding() {
 
         {method !== 'manual' && (
           <>
-            <SectionLabel>Review</SectionLabel>
+            <SectionLabel>{tx('onb.review')}</SectionLabel>
             <Card style={{ gap: 12 }}>
               <T variant="caption" color="muted">
-                Here is what we estimate. Adjust any number if you know better.
+                {tx('onb.reviewText')}
               </T>
               {pairs(PRAYERS).map((row, i) => (
                 <View key={i} style={{ flexDirection: 'row', gap: 12 }}>
                   {row.map((p) => (
                     <Field
                       key={p}
-                      label={PRAYER_LABELS[p]}
-                      value={edited[p] ?? String(computed[p])}
+                      label={pname(p)}
+                      value={digits(edited[p] ?? String(computed[p]))}
                       onChangeText={(v) =>
                         setEdit((prev) => ({
                           sig,
-                          values: { ...(prev.sig === sig ? prev.values : {}), [p]: v.replace(/[^0-9]/g, '') },
+                          values: { ...(prev.sig === sig ? prev.values : {}), [p]: clean(v) },
                         }))
                       }
                       keyboardType="number-pad"
@@ -254,19 +257,19 @@ export default function Onboarding() {
       >
         <View style={{ flex: 1 }}>
           <T variant="caption" color="muted">
-            Total to make up
+            {tx('onb.total')}
           </T>
           <T variant="title" adjustsFontSizeToFit numberOfLines={1}>
-            {total.toLocaleString()}
+            {n(total)}
           </T>
         </View>
-        <Button label="Continue" icon="arrow-forward" disabled={total === 0} onPress={save} style={{ minWidth: 160 }} />
+        <Button label={tx('onb.continue')} icon={isRtl(lang) ? 'arrow-back' : 'arrow-forward'} disabled={total === 0} onPress={save} style={{ minWidth: 160 }} />
       </View>
 
       <DateTimeSheet
         visible={showDate}
         mode="date"
-        title="When did you start praying regularly?"
+        title={tx('onb.dateTitle')}
         value={startDate}
         maximumDate={new Date()}
         onCancel={() => setShowDate(false)}

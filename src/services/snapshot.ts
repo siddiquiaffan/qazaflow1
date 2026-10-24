@@ -6,6 +6,7 @@ import { isPrayer, PRAYERS, type Prayer } from '@/domain/prayers';
 import { remindersFromLegacy } from '@/domain/reminders';
 
 import { getSetting, setBool, setSetting, SETTING_KEYS } from './settings';
+import { tr } from '@/i18n';
 
 const prayerSchema = z.enum(PRAYERS);
 
@@ -90,12 +91,12 @@ export function parseSnapshot(raw: string): Snapshot {
   try {
     json = JSON.parse(raw);
   } catch {
-    throw new SnapshotError('The backup file is not valid.');
+    throw new SnapshotError(tr().t('backup.errInvalid'));
   }
   const result = snapshotSchema.safeParse(json);
-  if (!result.success) throw new SnapshotError('The backup file is not valid.');
+  if (!result.success) throw new SnapshotError(tr().t('backup.errInvalid'));
   if (result.data.schemaVersion > SCHEMA_VERSION) {
-    throw new SnapshotError('This backup was made by a newer version of the app. Please update first.');
+    throw new SnapshotError(tr().t('backup.errNewer'));
   }
   return result.data;
 }

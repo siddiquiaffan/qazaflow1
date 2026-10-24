@@ -79,6 +79,17 @@ Output: owed count per prayer, shown on a review screen the user can edit before
 - Single History entries can be edited (count, date, time); counts are capped by what is still owed and entries cannot be dated in the future. Full-day rows are delete-only.
 - Settings → Export history shares the full log as CSV (date, time, prayer, count).
 
+## Localisation
+
+- Languages: English, Hindi, Urdu, Arabic. The app follows the phone's language and falls back to English; Settings → Language lets people pick one manually (or return to "System default").
+- Catalogs live in `src/i18n/catalogs/` (English is the source; the other three must have the same keys and placeholders — enforced by tests). Plurals use CLDR rules via `Intl.PluralRules`, so Arabic gets all six forms.
+- Hindi uses everyday Urdu-origin vocabulary (नमाज़, क़ज़ा, फ़ज्र, ज़ुहर, मग़रिब). Urdu and Arabic show ٣ ٤ ٥; English and Hindi keep 3 4 5. Typed Arabic-Indic digits are accepted in number fields.
+- Urdu and Arabic are right-to-left. Layout direction is fixed at launch, so switching between LTR and RTL languages restarts the app (`reloadAppAsync`). Chevrons and arrows flip.
+- Urdu text uses Noto Nastaliq Urdu (loaded only when Urdu is active) with taller line boxes; letter-spacing is removed for joined scripts.
+- Reminder notification text and the Android channel name are re-scheduled in the new language whenever it changes.
+- The launcher name is localised per language (`locales/*.json`): QazaFlow, क़ज़ा फ़्लो, قضا فلو, قضاء فلو.
+- Review sheet for translators: `node --experimental-strip-types scripts/export-translations.mts` → `docs/translations-review.csv`.
+
 ## Backup and restore
 
 - Google sign-in, then upload a versioned JSON snapshot to the hidden `appDataFolder`.
@@ -112,10 +123,10 @@ src/components/      shared UI
 4. Stats, multiple reminders, redesign, app icon ✅
    - UX pass: goal, milestones, backdated logging, grouped history, restore on onboarding ✅
    - Edit past entries, CSV export ✅
-5. Localisation (Urdu, Hindi, Arabic)
+5. Localisation (Hindi, Urdu, Arabic) ✅ — needs native-speaker review (`docs/translations-review.csv`)
 6. Store listing and assets
 
 ## Open questions
 
 - Excluded days are a simple number for now; a date-range picker could come later.
-- Localisation (Urdu, Hindi, Arabic) after the first release.
+- Native-speaker review of the Hindi, Urdu and Arabic strings; on-device check of RTL layouts and the Urdu font.

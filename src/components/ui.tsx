@@ -15,6 +15,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { isRtl, URDU_FONT, URDU_LINE_HEIGHT, useI18n, type Lang } from '@/i18n';
+
 import { tap } from './haptics';
 import { radius, spacing, useTheme, type Theme } from './theme';
 
@@ -35,6 +37,23 @@ const VARIANTS: Record<Variant, TextStyle> = {
   label: { fontSize: 12, fontWeight: '700', letterSpacing: 0.9, textTransform: 'uppercase' },
 };
 
+/**
+ * Script-specific text tweaks. Joined scripts break if letters are spaced apart, and Urdu's Nastaliq
+ * font needs a taller line box than Latin text or its strokes get clipped.
+ */
+export function localizeTextStyle(style: TextStyle, lang: Lang): TextStyle {
+  if (lang === 'en') return style;
+  const out: { -readonly [K in keyof TextStyle]: TextStyle[K] } = { ...style, letterSpacing: 0, textTransform: 'none' };
+  if (lang !== 'ur') return out;
+  const size = typeof style.fontSize === 'number' ? style.fontSize : 16;
+  const weight = String(style.fontWeight ?? '400');
+  const bold = weight === 'bold' || Number(weight) >= 600;
+  out.fontFamily = bold ? URDU_FONT.bold : URDU_FONT.regular;
+  out.fontWeight = 'normal';
+  out.lineHeight = Math.round(size * URDU_LINE_HEIGHT);
+  return out;
+}
+
 export function T({
   variant = 'body',
   color = 'text',
@@ -42,7 +61,15 @@ export function T({
   ...props
 }: TextProps & { variant?: Variant; color?: ColorKey }) {
   const t = useTheme();
-  return <Text {...props} style={[VARIANTS[variant], { color: t[color] }, style]} />;
+  const lang = useI18n((s) => s.lang);
+  const flat = StyleSheet.flatten([VARIANTS[variant], { color: t[color] }, style]) as TextStyle;
+  return <Text {...props} style={localizeTextStyle(flat, lang)} />;
+}
+
+/** Chevron that points the way the reading direction goes. */
+export function ForwardIcon({ size = 18, color }: { size?: number; color: string }) {
+  const rtl = isRtl(useI18n((s) => s.lang));
+  return <Ionicons name={rtl ? 'chevron-back' : 'chevron-forward'} size={size} color={color} />;
 }
 
 /* ───────────── Surfaces ───────────── */
@@ -174,7 +201,7 @@ export function Button({
       ) : (
         <>
           {icon && <Ionicons name={icon} size={small ? 18 : 20} color={fg} />}
-          <Text style={{ color: fg, fontSize: small ? 14 : 16, fontWeight: '700' }}>{label}</Text>
+          <T style={{ color: fg, fontSize: small ? 14 : 16, fontWeight: '700' }}>{label}</T>
         </>
       )}
     </Pressable>
@@ -261,7 +288,7 @@ export function ListRow({
         ) : null}
       </View>
       {right}
-      {onPress && !right ? <Ionicons name="chevron-forward" size={18} color={t.muted} /> : null}
+      {onPress && !right ? <ForwardIcon color={t.muted} /> : null}
     </View>
   );
   if (!onPress) return content;
@@ -300,6 +327,7 @@ export function Switch({ value, onValueChange, label }: { value: boolean; onValu
 
 export function Field({ label, style, ...props }: { label: string } & TextInputProps) {
   const t = useTheme();
+  const lang = useI18n((s) => s.lang);
   const [focused, setFocused] = useState(false);
   return (
     <View style={{ flex: 1, gap: 6 }}>
@@ -322,6 +350,7 @@ export function Field({ label, style, ...props }: { label: string } & TextInputP
         style={[
           styles.input,
           { color: t.text, backgroundColor: t.surface, borderColor: focused ? t.primary : t.border },
+          lang === 'ur' ? { fontFamily: URDU_FONT.regular } : null,
           style,
         ]}
       />
@@ -354,7 +383,7 @@ export function Segmented<K extends string>({
             }}
             style={[styles.segment, selected && { backgroundColor: t.surface, borderColor: t.border, borderWidth: StyleSheet.hairlineWidth }]}
           >
-            <Text style={{ color: selected ? t.primary : t.muted, fontWeight: '700', fontSize: 14 }}>{o.label}</Text>
+            <T style={{ color: selected ? t.primary : t.muted, fontWeight: '700', fontSize: 14 }}>{o.label}</T>
           </Pressable>
         );
       })}

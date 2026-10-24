@@ -3,6 +3,7 @@ import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google
 import { syncReminders } from './reminders';
 import { createSnapshot, parseSnapshot, restoreSnapshot, type Snapshot } from './snapshot';
 import { deleteSetting, getSetting, setSetting, SETTING_KEYS } from './settings';
+import { tr } from '@/i18n';
 
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const BACKUP_NAME = 'qazaflow-backup.json';
@@ -38,16 +39,16 @@ export async function signIn(): Promise<string> {
   try {
     await GoogleSignin.hasPlayServices();
     const res = await GoogleSignin.signIn();
-    if (res.type !== 'success') throw new BackupError('Sign-in was cancelled.');
+    if (res.type !== 'success') throw new BackupError(tr().t('backup.errCancelled'));
     const email = res.data.user.email;
     setSetting(SETTING_KEYS.lastBackupEmail, email);
     return email;
   } catch (e) {
     if (e instanceof BackupError) throw e;
     if (isErrorWithCode(e) && e.code === statusCodes.SIGN_IN_CANCELLED) {
-      throw new BackupError('Sign-in was cancelled.');
+      throw new BackupError(tr().t('backup.errCancelled'));
     }
-    throw new BackupError('Could not sign in with Google.');
+    throw new BackupError(tr().t('backup.errSignIn'));
   }
 }
 
@@ -67,7 +68,7 @@ async function accessToken(): Promise<string> {
     const { accessToken: token } = await GoogleSignin.getTokens();
     return token;
   } catch {
-    throw new BackupError('Please sign in with Google again.');
+    throw new BackupError(tr().t('backup.errSignInAgain'));
   }
 }
 
@@ -77,9 +78,9 @@ async function driveFetch(token: string, url: string, init: RequestInit = {}): P
     headers: { Authorization: `Bearer ${token}`, ...(init.headers ?? {}) },
   });
   if (res.status === 401 || res.status === 403) {
-    throw new BackupError('Google Drive access was denied. Please sign in again.');
+    throw new BackupError(tr().t('backup.errDenied'));
   }
-  if (!res.ok) throw new BackupError(`Google Drive error (${res.status}).`);
+  if (!res.ok) throw new BackupError(tr().t('backup.errDrive', { status: String(res.status) }));
   return res;
 }
 

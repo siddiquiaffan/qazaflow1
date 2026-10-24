@@ -10,9 +10,10 @@ import { ScreenHeader } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { useTheme } from '@/components/theme';
 import { Button, EmptyState, Group, IconBadge, IconButton, T } from '@/components/ui';
-import { dateFromKey, friendlyDay, pluralize } from '@/domain/format';
+import { useT, type Key } from '@/i18n';
+import { dateFromKey } from '@/domain/format';
 import { groupEntries, withDate, withTime, type EditProblem, type HistoryItem } from '@/domain/history';
-import { isPrayer, PRAYER_LABELS, PRAYERS } from '@/domain/prayers';
+import { isPrayer, PRAYERS } from '@/domain/prayers';
 import { dayKey } from '@/domain/stats';
 import { deleteCompletions, listCompletions, updateCompletion } from '@/services/ledger';
 import { useLedger } from '@/store';
@@ -21,15 +22,12 @@ type Row = ReturnType<typeof listCompletions>[number];
 
 const PAGE = 300;
 
-const EDIT_MESSAGES: Record<EditProblem | 'missing', string> = {
-  'invalid-count': 'Enter at least 1.',
-  'too-many': 'That is more than you have left to make up for this prayer.',
-  future: 'An entry cannot be in the future.',
-  missing: 'That entry no longer exists.',
+const EDIT_MESSAGES: Record<EditProblem | 'missing', Key> = {
+  'invalid-count': 'history.err.invalidCount',
+  'too-many': 'history.err.tooMany',
+  future: 'history.err.future',
+  missing: 'history.err.missing',
 };
-
-const nameOf = (prayer: string) => (isPrayer(prayer) ? PRAYER_LABELS[prayer] : prayer);
-const timeOf = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 function EntryRow({
   leading,
@@ -49,6 +47,7 @@ function EntryRow({
   onDelete: () => void;
 }) {
   const t = useTheme();
+  const { t: tx } = useT();
   return (
     <View
       style={{
@@ -68,7 +67,7 @@ function EntryRow({
           {subtitle}
         </T>
       </View>
-      {onEdit ? <IconButton icon="create-outline" label={`Edit ${title}`} size={40} onPress={onEdit} /> : null}
+      {onEdit ? <IconButton icon="create-outline" label={tx('history.edit', { title })} size={40} onPress={onEdit} /> : null}
       <IconButton icon="trash-outline" label={deleteLabel} variant="danger" size={40} onPress={onDelete} />
     </View>
   );
@@ -76,6 +75,13 @@ function EntryRow({
 
 export default function HistoryScreen() {
   const t = useTheme();
+  const { t: tx, prayer: nameOf, prayers, friendlyDay, clock, date } = useT();
+  const timeOf = (ts: number) => {
+    const d = new Date(ts);
+    return clock(d.getHours(), d.getMinutes());
+  };
+  const countedTitle = (prayer: string, count: number) =>
+    count > 1 ? tx('entry.title', { prayer: nameOf(prayer), count }) : nameOf(prayer);
   const { version, refresh, summary } = useLedger();
   const showToast = useToast((s) => s.show);
   const [limit, setLimit] = useState(PAGE);
@@ -103,15 +109,15 @@ export default function HistoryScreen() {
   }, [version, limit]);
 
   const confirmDelete = (title: string, ids: number[]) =>
-    Alert.alert(`Remove ${title}?`, 'It will be added back to what remains.', [
-      { text: 'Keep', style: 'cancel' },
+    Alert.alert(tx('history.removeTitle', { title }), tx('history.removeBody'), [
+      { text: tx('history.keep'), style: 'cancel' },
       {
-        text: 'Remove',
+        text: tx('history.remove'),
         style: 'destructive',
         onPress: () => {
           deleteCompletions(ids);
           refresh();
-          showToast('Entry removed');
+          showToast(tx('history.removed'));
         },
       },
     ]);
@@ -120,12 +126,12 @@ export default function HistoryScreen() {
     if (!editing) return;
     const result = updateCompletion(editing.row.id, { count, completedAt: editing.at });
     if (!result.ok) {
-      Alert.alert('Could not save', EDIT_MESSAGES[result.reason]);
+      Alert.alert(tx('history.couldNotSave'), tx(EDIT_MESSAGES[result.reason]));
       return;
     }
     setEditing(null);
     refresh();
-    showToast('Entry updated');
+    showToast(tx('history.updated'));
   };
 
   const renderItem = (item: HistoryItem<Row>, last: boolean) => {
@@ -138,11 +144,11 @@ export default function HistoryScreen() {
         <EntryRow
           key={item.rows[0].id}
           leading={<IconBadge name="checkmark-done" size={40} />}
-          title={`Full day · ${pluralize(item.total, 'prayer')}`}
+          title={tx('history.fullDay', { prayers: prayers(item.total) })}
           subtitle={`${timeOf(item.completedAt)} · ${names}`}
-          deleteLabel="Remove full day entry"
+          deleteLabel={tx('history.removeFullDay')}
           last={last}
-          onDelete={() => confirmDelete('this full day', item.rows.map((r) => r.id))}
+          onDelete={() => confirmDelete(tx('history.thisFullDay'), item.rows.map((r) => r.id))}
         />
       );
     }
@@ -169,24 +175,24 @@ export default function HistoryScreen() {
             />
           </View>
         }
-        title={`${nameOf(row.prayer)}${row.count > 1 ? ` × ${row.count}` : ''}`}
+        title={countedTitle(row.prayer, row.count)}
         subtitle={timeOf(row.completedAt)}
-        deleteLabel={`Remove ${nameOf(row.prayer)} entry`}
+        deleteLabel={tx('history.removeEntry', { prayer: nameOf(row.prayer) })}
         last={last}
         onEdit={() => setEditing({ row, at: row.completedAt })}
-        onDelete={() => confirmDelete(`${nameOf(row.prayer)}${row.count > 1 ? ` × ${row.count}` : ''}`, [row.id])}
+        onDelete={() => confirmDelete(countedTitle(row.prayer, row.count), [row.id])}
       />
     );
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
-      <ScreenHeader title="History" subtitle="What you have made up" />
+      <ScreenHeader title={tx('history.title')} subtitle={tx('history.subtitle')} />
       {sections.length === 0 ? (
         <EmptyState
           icon="time-outline"
-          title="Nothing logged yet"
-          text="Prayers you make up will appear here, grouped by day."
+          title={tx('history.empty.title')}
+          text={tx('history.empty.text')}
         />
       ) : (
         <SectionList
@@ -212,7 +218,7 @@ export default function HistoryScreen() {
             >
               <T variant="heading">{section.title}</T>
               <T variant="caption" color="muted">
-                {pluralize(section.total, 'prayer')}
+                {prayers(section.total)}
               </T>
             </View>
           )}
@@ -225,8 +231,8 @@ export default function HistoryScreen() {
       <NumberPrompt
         visible={editing !== null}
         hidden={picking !== null}
-        title={editing ? `Edit ${nameOf(editing.row.prayer)}` : ''}
-        hint="Change how many you made up, and when."
+        title={editing ? tx('history.editTitle', { prayer: nameOf(editing.row.prayer) }) : ''}
+        hint={tx('history.editHint')}
         initial={editing?.row.count ?? 1}
         min={1}
         max={
@@ -238,7 +244,7 @@ export default function HistoryScreen() {
           editing ? (
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <Button
-                label={new Date(editing.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                label={date(new Date(editing.at), { day: 'numeric', month: 'short', year: 'numeric' })}
                 icon="calendar-outline"
                 variant="tonal"
                 size="sm"
@@ -263,7 +269,7 @@ export default function HistoryScreen() {
       <DateTimeSheet
         visible={picking !== null && editing !== null}
         mode={picking ?? 'date'}
-        title={picking === 'time' ? 'Time' : 'Date'}
+        title={picking === 'time' ? tx('history.pickTime') : tx('history.pickDate')}
         value={new Date(editing?.at ?? Date.now())}
         maximumDate={new Date()}
         onCancel={() => setPicking(null)}

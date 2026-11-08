@@ -26,11 +26,29 @@ export async function ensureChannel(): Promise<void> {
   });
 }
 
+/**
+ * Android 12+ delivers alarms late (batched, often by many minutes) unless the person allows
+ * "Alarms & reminders" for the app. Open that settings screen once if it is not allowed yet.
+ */
+export async function ensureExactAlarms(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  try {
+    if ((await Notifications.getExactAlarmPermissionsAsync()).granted) return;
+    await Notifications.requestExactAlarmPermissionsAsync();
+  } catch {
+    // Older Android versions have nothing to ask; reminders still work.
+  }
+}
+
 export async function ensurePermission(): Promise<boolean> {
-  if (await hasPermission()) return true;
-  // On Android 13+ the system prompt only appears once a notification channel exists.
-  await ensureChannel();
-  return (await Notifications.requestPermissionsAsync()).granted;
+  let granted = await hasPermission();
+  if (!granted) {
+    // On Android 13+ the system prompt only appears once a notification channel exists.
+    await ensureChannel();
+    granted = (await Notifications.requestPermissionsAsync()).granted;
+  }
+  if (granted) await ensureExactAlarms();
+  return granted;
 }
 
 export async function cancelAll(): Promise<void> {
@@ -49,6 +67,8 @@ export async function scheduleDaily(id: number, hour: number, minute: number): P
       hour,
       minute,
       channelId: REMINDER_CHANNEL_ID,
+      // Delivered at the exact minute even when the phone is idle or battery-saving.
+      delivery: 'alarmClock',
     },
   });
 }

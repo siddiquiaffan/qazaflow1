@@ -1,5 +1,6 @@
 import { NotoNastaliqUrdu_400Regular, NotoNastaliqUrdu_700Bold } from '@expo-google-fonts/noto-nastaliq-urdu';
 import { useFonts } from 'expo-font';
+import { AppState } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -8,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useTheme } from '@/components/theme';
 import { ToastHost } from '@/components/Toast';
 import '@/services/autoBackup';
+import { registerReminderRefresh } from '@/services/autoBackup';
 import { syncReminders } from '@/services/reminders';
 import { useI18n } from '@/i18n';
 import { useLedger } from '@/store';
@@ -24,7 +26,16 @@ export default function RootLayout() {
     // Keep scheduled notifications in line with the saved reminders and the current language
     // (e.g. after an update, a restore or a language change).
     syncReminders().catch(() => {});
+    registerReminderRefresh().catch(() => {});
   }, [refresh, lang]);
+
+  // Roll the two-week notification window forward whenever the app comes back to the front.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') syncReminders().catch(() => {});
+    });
+    return () => sub.remove();
+  }, []);
 
   if (!fontsReady) return null;
 

@@ -232,8 +232,22 @@ export const en = {
   'onb.back': 'Back',
 
   'notif.channel': 'Daily reminders',
-  'notif.title': 'Time for a small step',
-  'notif.body': 'Log a prayer you have made up today.',
+  'notif.1.title': 'A small step today',
+  'notif.1.body': 'Make up one prayer now. Even one counts.',
+  'notif.2.title': 'One qaza at a time',
+  'notif.2.body': 'Every prayer you complete lightens what is left.',
+  'notif.3.title': 'Your streak is waiting',
+  'notif.3.body': 'Log a prayer today and keep your streak going.',
+  'notif.4.title': 'Take a few minutes',
+  'notif.4.body': 'A short pause now brings you a step closer to done.',
+  'notif.5.title': 'Little by little',
+  'notif.5.body': 'Steady progress adds up. Pray one qaza after this salah.',
+  'notif.6.title': 'Make today count',
+  'notif.6.body': 'How many can you make up today? Log them as you pray.',
+  'notif.7.title': 'You can do this',
+  'notif.7.body': 'Start with just one prayer. The rest gets easier.',
+  'notif.8.title': 'Do not let today pass',
+  'notif.8.body': 'One qaza prayer before the day ends — you will feel lighter.',
 } as const satisfies Record<string, Entry>;
 
 export type Key = keyof typeof en;

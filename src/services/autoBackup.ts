@@ -2,6 +2,7 @@ import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
 
 import { backupNow, getSignedInEmail } from './drive';
+import { syncReminders } from './reminders';
 import { getBool, getNumber, SETTING_KEYS } from './settings';
 
 const TASK_NAME = 'qazaflow-auto-backup';
@@ -21,6 +22,23 @@ TaskManager.defineTask(TASK_NAME, async () => {
     return BackgroundTask.BackgroundTaskResult.Failed;
   }
 });
+
+const REMINDER_TASK = 'qazaflow-reminder-refresh';
+
+// Keeps the rolling notification window topped up even if the app is not opened for a while.
+TaskManager.defineTask(REMINDER_TASK, async () => {
+  try {
+    await syncReminders();
+    return BackgroundTask.BackgroundTaskResult.Success;
+  } catch {
+    return BackgroundTask.BackgroundTaskResult.Failed;
+  }
+});
+
+export async function registerReminderRefresh(): Promise<void> {
+  if (await TaskManager.isTaskRegisteredAsync(REMINDER_TASK)) return;
+  await BackgroundTask.registerTaskAsync(REMINDER_TASK, { minimumInterval: 24 * 60 });
+}
 
 export async function setAutoBackup(enabled: boolean): Promise<void> {
   const registered = await TaskManager.isTaskRegisteredAsync(TASK_NAME);

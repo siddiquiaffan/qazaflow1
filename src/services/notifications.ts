@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-import { tr } from '@/i18n';
+import { tr, type Key } from '@/i18n';
 
 export const REMINDER_CHANNEL_ID = 'daily-reminder';
 
@@ -55,17 +55,19 @@ export async function cancelAll(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
-export async function scheduleDaily(id: number, hour: number, minute: number): Promise<void> {
+/** Schedule one notification at `at`, with the encouragement message numbered `message` (0-based). */
+export async function scheduleNudge(identifier: string, at: Date, message: number): Promise<void> {
+  const { t } = tr();
+  const n = message + 1;
   await Notifications.scheduleNotificationAsync({
-    identifier: `reminder-${id}`,
+    identifier,
     content: {
-      title: tr().t('notif.title'),
-      body: tr().t('notif.body'),
+      title: t(`notif.${n}.title` as Key),
+      body: t(`notif.${n}.body` as Key),
     },
     trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour,
-      minute,
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: at,
       channelId: REMINDER_CHANNEL_ID,
       // Delivered at the exact minute even when the phone is idle or battery-saving.
       delivery: 'alarmClock',

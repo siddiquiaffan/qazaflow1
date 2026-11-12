@@ -59,7 +59,7 @@ Output: owed count per prayer, shown on a review screen the user can edit before
 
 - Any number of daily reminders, each with its own time and on/off switch.
 - Times are chosen with the system clock picker (Android clock dialog, iOS spinner sheet).
-- One local notification is scheduled per enabled reminder (`reminder-<id>`); the schedule is rebuilt from the database on every launch, after every edit and after a restore, so it can never drift.
+- Each enabled reminder is scheduled for the next 14 days as separate notifications (`reminder-<id>-<yyyymmdd>`), and every day shows a different encouraging message (8 messages, rotating; reminders at different times get different ones). The window is rebuilt from the database on launch, whenever the app returns to the foreground, after every edit and restore, and by a daily background task, so it keeps rolling forward and can never drift.
 - Duplicate times are rejected; deleting a reminder offers an undo.
 - The old single reminder from schema v1 is migrated automatically, and v1 backups still restore.
 

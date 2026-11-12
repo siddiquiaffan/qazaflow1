@@ -3,7 +3,9 @@ import { asc, eq } from 'drizzle-orm';
 import { db, schema } from '@/db/client';
 import { isDuplicate, isValidTime } from '@/domain/reminders';
 
-import { cancelAll, ensureChannel, hasPermission, scheduleDaily } from './notifications';
+import { occurrenceId, planOccurrences } from '@/domain/nudges';
+
+import { cancelAll, ensureChannel, hasPermission, scheduleNudge } from './notifications';
 import { touchLocalChange } from './settings';
 
 export type Reminder = typeof schema.reminders.$inferSelect;
@@ -46,7 +48,9 @@ export function deleteReminder(id: number): void {
 
 /**
  * Make the scheduled notifications match the reminders table: cancel everything,
- * then schedule one daily notification per enabled reminder. Safe to call any time.
+ * then schedule the next two weeks of notifications for every enabled reminder, each day with a
+ * different encouraging message. Called on launch, on returning to the app, after edits and from a
+ * daily background task, so the window keeps rolling forward. Safe to call any time.
  * Returns false if there is something to schedule but notification permission is missing.
  */
 export async function syncReminders(): Promise<boolean> {
@@ -55,6 +59,6 @@ export async function syncReminders(): Promise<boolean> {
   if (enabled.length === 0) return true;
   if (!(await hasPermission())) return false;
   await ensureChannel();
-  for (const r of enabled) await scheduleDaily(r.id, r.hour, r.minute);
+  for (const o of planOccurrences(enabled, new Date())) await scheduleNudge(occurrenceId(o), o.at, o.message);
   return true;
 }
